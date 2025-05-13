@@ -3,6 +3,8 @@ library(tidyverse)
 data <- read_rds('data/processed/rds/well_depth_aconcagua.rds') |> 
   filter(year(fecha) >= 2000)
 
+# consistency
+
 data_filter <- data |> 
   group_by(codigo,año = year(fecha)) |> 
   reframe(head = sum(!is.na(head(m,3))), # valores !NA en los primeros tres meses (máximo 3)
@@ -23,17 +25,76 @@ pt_min <- data_filter |>
   pull(pt) |> 
   quantile(.57)
 
+# trend
+
+library(zyp)
+library(Kendall)
+
+mk <- function(x,y) {
+  x_complete <- seq(min(x),max(x))
+  y <- tibble(x = x_complete) |> 
+    left_join(tibble(x,y)) |> 
+    suppressMessages() |> 
+    pull(y)
+  tau = as.numeric(MannKendall(y)$tau)
+  sl = as.numeric(MannKendall(y)$sl)
+  
+  return(list('tau' = tau, 'sl' = sl))
+}
+sen <- function(x,y) {
+  data_sen <- tibble(x,y)
+  ss <- as.numeric(zyp.sen(y ~ x,data=data_sen)$coefficients)
+  
+  return(list('int' = ss[1], 'slope' = ss[2]))
+}
+
+data_trend <- data_pozos |> 
+  na.omit() |>
+  group_by(shac,codigo,estacion) |>
+  reframe(mk_p_estacional = mk(año,m)$sl,
+          sen_slope_estacional = sen(año,m)$slope) |> 
+  group_by(shac,codigo) |> 
+  reframe(mk_p = max(mk_p_estacional,na.rm=T),
+          sen_slope = median(sen_slope_estacional,na.rm=T)) |>
+  mutate(class = cut(sen_slope,seq(-1.5,.5,by=.5),right=F,labels=F))
+
+data_trend <- data |> 
+  group_by(codigo,año = year(fecha)) |> 
+  reframe(m = mean(m,na.rm=T)) |> 
+  group_by(codigo) |> 
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+
 codigos_seleccionados <- data_filter |> 
   filter(pt >= pt_min) |> 
   pull(codigo)
 
-read_rds('data/processed/rds/pozos_aconcagua.rds') |> 
-  filter(codigo %in% codigos_seleccionados) |> 
-  write_rds('data/processed/rds/pozos.rds')
+pozos <- read_rds('data/processed/rds/pozos_aconcagua.rds') |> 
+  filter(codigo %in% codigos_seleccionados)
+
+write_rds(pozos, 'data/processed/rds/pozos.rds')
 
 read_rds('data/processed/rds/well_depth_aconcagua.rds') |> 
   filter(codigo %in% codigos_seleccionados) |> 
   write_rds('data/processed/rds/well_depth.rds')
+
+pozos |> 
+  vect(geom = c("lon", "lat"), crs = "EPSG:4326") |> 
+  project('EPSG:32719') |> 
+  mutate(codigo =as.integer(codigo)) |> 
+  writeVector('data/processed/vectorial/pozos.shp',overwrite=T)
+
 
 # fill data
 
@@ -61,17 +122,4 @@ data <- read_rds('data/processed/rds/well_depth_aconcagua.rds') |>
 
 codigos_seleccionados <- read_rds('data/processed/rds/pozos_seleccionados.rds') |> 
   pull(codigo)
-
-data |> 
-  filter(codigo %in% codigos_seleccionados[c(1,4,8,12,16,20)]) |> 
-  group_by(codigo) |> 
-  mutate(m_filled = fill_zoo(m)) |> 
-  ggplot(aes(fecha,m_filled,color = 'm_filled')) +
-  geom_point() +
-  geom_line() +
-  geom_point(aes(fecha,m,color ='m')) +
-  geom_line(aes(fecha,m,color ='m')) +
-  scale_x_date(date_labels = "%Y",date_breaks = '2 years') +
-  facet_wrap(~codigo,ncol=2,scale = 'free_y') +
-  theme_bw()
 

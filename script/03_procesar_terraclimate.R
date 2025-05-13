@@ -45,3 +45,24 @@ lapply(ws, \(ly) {
   writeRaster(ly,paste0(dir.out, glue('WS_{substr(date,1,4)}-{substr(date,6,7)}.tif')))
 })
 
+# extraer
+
+well_depth <- read_rds('data/processed/rds/well_depth.rds')
+well <- vect('data/processed/vectorial/pozos.shp')
+ws_r <- list.files('data/processed/raster/TerraClimate/WS',full.names=T) |> 
+  rast()
+
+ws <- extract(ws_r,well) |> 
+  mutate(codigo = well$codigo,
+         .before = ID) |> 
+  select(-ID) |> 
+  pivot_longer(c(everything(),-codigo), names_to = 'fecha',
+               values_to = 'ws') |> 
+  mutate(fecha = as.Date(paste0(fecha,'-01'))) |> 
+  select(fecha,codigo,ws)
+
+data <- left_join(ws,well_depth)
+
+write_rds(data,'data/processed/rds/water_storage.rds')
+
+data

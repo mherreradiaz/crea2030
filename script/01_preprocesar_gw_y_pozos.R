@@ -25,3 +25,4 @@ read_xlsx('data/raw/tabulada/gw_chile.xlsx') |>
   mutate(codigo = as.integer(codigo)) |> 
   distinct() |> 
   write_rds('data/processed/rds/pozos_aconcagua.rds')
+
