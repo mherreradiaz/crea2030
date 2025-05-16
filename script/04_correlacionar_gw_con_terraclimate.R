@@ -6,8 +6,6 @@ library(patchwork)
 
 cleanInf <- \(x) ifelse(is.infinite(x),NA,x)
 
-# versión dos
-
 data <- read_rds('data/processed/rds/water_storage.rds') |> 
   filter(year(fecha) >= 1999) |> 
   rename(WS=ws,WD=m)
