@@ -25,57 +25,6 @@ pt_min <- data_filter |>
   pull(pt) |> 
   quantile(.57)
 
-# trend
-
-library(zyp)
-library(Kendall)
-
-mk <- function(x,y) {
-  x_complete <- seq(min(x),max(x))
-  y <- tibble(x = x_complete) |> 
-    left_join(tibble(x,y)) |> 
-    suppressMessages() |> 
-    pull(y)
-  tau = as.numeric(MannKendall(y)$tau)
-  sl = as.numeric(MannKendall(y)$sl)
-  
-  return(list('tau' = tau, 'sl' = sl))
-}
-sen <- function(x,y) {
-  data_sen <- tibble(x,y)
-  ss <- as.numeric(zyp.sen(y ~ x,data=data_sen)$coefficients)
-  
-  return(list('int' = ss[1], 'slope' = ss[2]))
-}
-
-data_trend <- data_pozos |> 
-  na.omit() |>
-  group_by(shac,codigo,estacion) |>
-  reframe(mk_p_estacional = mk(año,m)$sl,
-          sen_slope_estacional = sen(año,m)$slope) |> 
-  group_by(shac,codigo) |> 
-  reframe(mk_p = max(mk_p_estacional,na.rm=T),
-          sen_slope = median(sen_slope_estacional,na.rm=T)) |>
-  mutate(class = cut(sen_slope,seq(-1.5,.5,by=.5),right=F,labels=F))
-
-data_trend <- data |> 
-  group_by(codigo,año = year(fecha)) |> 
-  reframe(m = mean(m,na.rm=T)) |> 
-  group_by(codigo) |> 
-  
-  
-
-
-
-
-
-
-
-
-
-
-
-
 codigos_seleccionados <- data_filter |> 
   filter(pt >= pt_min) |> 
   pull(codigo)
