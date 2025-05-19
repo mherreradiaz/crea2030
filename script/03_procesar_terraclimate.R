@@ -64,5 +64,3 @@ ws <- extract(ws_r,well) |>
 data <- left_join(ws,well_depth)
 
 write_rds(data,'data/processed/rds/water_storage.rds')
-
-data
