@@ -7,7 +7,7 @@ library(patchwork)
 cleanInf <- \(x) ifelse(is.infinite(x),NA,x)
 
 data <- read_rds('data/processed/rds/water_storage.rds') |> 
-  filter(year(fecha) >= 1999) |> 
+  filter(year(fecha) >= 1980) |> 
   rename(WS=ws,WD=m)
 
 # data |> 
@@ -44,10 +44,35 @@ data_anual <- data |>
     SSI_WD    = (WDmean - mean(WDmean, na.rm = TRUE)) / sd(WDmean, na.rm = TRUE)
   ) |> 
   filter(between(año,2000,2022)) |> 
-  mutate(WSaccum   = cumsum(WSsum)) |> 
+  mutate(WSaccum   = cumsum(WSsum),
+         norm = cumsum(rnorm(length(año)))) |> 
   # mutate(across(matches('WS|WD'), \(x) as.numeric(scale(x,center=F)))) |>
   ungroup() |> 
   select(-c(WSmin,WSmax,WDmin,WDmax))
+
+# data |>
+#   mutate(año = year(fecha)) |>
+#   group_by(codigo,año) |>
+#   reframe(WSsum    = sum(WS, na.rm = T)) |>
+#   group_by(codigo) |> 
+#   mutate(WSaccum_1980   = cumsum(if_else(año >= 1980, WSsum, 0)),
+#          WSaccum_1990   = cumsum(if_else(año >= 1990, WSsum, 0)),
+#          WSaccum_1999   = cumsum(if_else(año >= 1999, WSsum, 0)),
+#          WSaccum_2000   = cumsum(if_else(año >= 2000, WSsum, 0)),
+#          WSaccum_2001   = cumsum(if_else(año >= 2001, WSsum, 0)),
+#          WSaccum_2005   = cumsum(if_else(año >= 2005, WSsum, 0))) |> 
+#   mutate(across(contains('WS'),\(col) if_else(col == 0, NA, col))) |> 
+#   ungroup() |>
+#   pivot_longer(cols = contains('WSaccum'), names_to = 'var', values_to = 'value') |> 
+#   mutate(var = gsub('WSaccum_','',var),
+#          var = factor(var,levels = c('2005','2001','2000','1999','1990','1980','WSsum'))) |> 
+#   filter(codigo %in% sample(unique(data$codigo),9),
+#          año >= 2000) |> 
+#   ggplot(aes(año,value,color=var)) +
+#   geom_hline(yintercept = 0, linetype = 'dashed', alpha = .5) +
+#   geom_line(linewidth = 1, alpha = .7) +
+#   facet_wrap(~codigo,ncol=3) +
+#   theme_bw()
 
 write_rds(data_anual,'data/processed/rds/water_storage_anual.rds')
   
@@ -81,7 +106,6 @@ set.seed(123)
 
 data_cor <- data_anual |>
   group_by(codigo) |>
-  mutate(norm = cumsum(rnorm(length(año)))) |> 
   reframe(
     cor_mat = list(
       cor(
@@ -128,7 +152,7 @@ data_cor |>
 
 ggsave('output/fig/water_correlation_frequency.png',height = 6, width = 8)
 
-data_grupo <- data_cor |> 
+data_grupo <- data_cor |>
   filter(comparison == c('WSminus vs SSI_WD')) |>
   mutate(grupo = cut(r,breaks = rev(c(Inf, 0, -.2, -.4, -.6,-.8)),
                   labels = 1:5,
@@ -162,18 +186,28 @@ data_cor |>
   theme(strip.background = element_rect(fill = 'white'))
 
 ggsave('output/fig/water_correlation.png',height = 6, width = 8)
+
+grupos_norm <- data_cor |>
+  filter(comparison == c('norm vs SSI_WD')) |>
+  mutate(r = abs(r)) |> 
+  arrange(r) |> 
+  pull(codigo)
+
+norm_groups <- list(head(grupos_norm,6),tail(grupos_norm,6))
+
+group_name_norm <- c('low correlation group','high correlation group')
   
 data_anual |>
-  pivot_longer(cols=c(WSminus,SSI_WD,WSaccum),values_to = 'value',names_to = 'variable') |>
+  pivot_longer(cols=c(WSminus,SSI_WD,WSaccum,norm),values_to = 'value',names_to = 'variable') |>
   group_by(codigo,variable) |> 
   mutate(value = as.numeric(scale(value,center=F))) |> 
-  filter(codigo %in% filter(data_grupo,gr == i)$codigo) |>
+  filter(codigo %in% norm_groups[[i]]) |>
   ggplot(aes(año,value,color = variable)) +
   geom_hline(yintercept = 0, linetype = 'dashed', alpha = .5) +
   # geom_point(size = 1) +
   geom_line(linewidth = 1,alpha = .7) +
   facet_wrap(~codigo,ncol =2) +
-  labs(y = 'scaled values',x = NULL, title = group_name[i]) +
+  labs(y = 'scaled values',x = NULL, title = group_name_norm[i]) +
   scale_x_continuous(limits = c(2000,2022), breaks = seq(2000,2022,by=4), expand = c(0,0.5)) +
   theme_bw() +
   theme(strip.background = element_rect(fill='white'))

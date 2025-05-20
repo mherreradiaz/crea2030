@@ -15,7 +15,8 @@ data <- tibble(codigo = unique(data_raw$codigo)) |>
   group_by(codigo) |> 
   reframe(fecha = seq.Date(as.Date('1980-01-01'),as.Date('2021-12-01'),by='month')) |> 
   left_join(data_raw) |> 
-  mutate(m = ifelse(is.na(m),NA,m))
+  mutate(m = ifelse(is.na(m),NA,m)) |> 
+  filter(m <= 0)
   
 write_rds(data,'data/processed/rds/well_depth_aconcagua.rds')
 

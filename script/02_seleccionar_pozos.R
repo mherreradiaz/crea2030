@@ -45,6 +45,38 @@ pozos |>
   writeVector('data/processed/vectorial/pozos.shp',overwrite=T)
 
 
+read_rds('data/processed/rds/well_depth.rds') |> 
+  mutate(año = year(fecha),
+         mes = month(fecha)) |> 
+  filter(año > 2000) |> 
+  filter(codigo %in% unique(read_rds('data/processed/rds/well_depth.rds')$codigo)[12:27]) |> 
+  group_by(codigo, año) |> 
+  mutate(m = as.numeric(scale(m,center=F))) |> 
+  ggplot(aes(mes,m)) +
+  geom_point(aes(group = año)) +
+  geom_smooth() +
+  scale_x_continuous(limits = c(1,12), breaks = 1:12) +
+  facet_wrap(~codigo,ncol=4) +
+  theme_bw()
+
+read_rds('data/processed/rds/well_depth.rds') |> 
+  mutate(año = year(fecha),
+         mes = month(fecha)) |> 
+  filter(año > 2000) |> 
+  filter(codigo %in% unique(read_rds('data/processed/rds/well_depth.rds')$codigo)[1:12]) |> 
+  group_by(codigo, año) |> 
+  mutate(m = as.numeric(scale(m,center=F))) |> 
+  group_by(codigo,mes) |> 
+  reframe(m = median(m,na.rm=T)) |> 
+  ggplot(aes(mes,m)) +
+  geom_point() +
+  geom_smooth() +
+  scale_x_continuous(limits = c(1,12), breaks = 1:12) +
+  facet_wrap(~codigo,ncol=4) +
+  theme_bw()
+
+
+
 # fill data
 
 library(zoo)
