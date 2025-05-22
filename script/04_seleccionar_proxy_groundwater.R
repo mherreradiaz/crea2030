@@ -6,9 +6,31 @@ library(patchwork)
 
 cleanInf <- \(x) ifelse(is.infinite(x),NA,x)
 
-data <- read_rds('data/processed/rds/water_storage.rds') |> 
-  filter(year(fecha) >= 1980) |> 
-  rename(WS=ws,WD=m)
+# seleccionar pozos con estacionalidad
+
+read_rds('data/processed/rds/water_balance.rds') |> 
+  filter(year(fecha) >= 1999) |> 
+  # filter(codigo %in% pozos_estacionales) |> 
+  group_by(codigo,año = year(fecha)) |> 
+  mutate(gw_depth = as.numeric(scale(gw_depth,center=F))) |> 
+  group_by(codigo, mes = month(fecha)) |> 
+  reframe(GWD = mean(gw_depth,na.rm=T)) |> 
+  ggplot(aes(mes,GWD)) +
+  geom_point() +
+  geom_line(linetype = 'dashed',col = 'red') +
+  geom_smooth() +
+  scale_x_continuous(breaks = 1:12) +
+  facet_wrap(~codigo,ncol=9,scales='free_y') +
+  # facet_wrap(~codigo,ncol=5) +
+  theme_bw()
+
+pozos_estacionales <- c(5423019,5423023,5426005,5426006,5426008,
+                        5426015,5426016,5426020,5426022,5428008)
+
+# calcular métricas anuales
+
+data_mes <- read_rds('data/processed/rds/water_balance.rds') |> 
+  rename(WS = ws,WS_SM = ws_sm,GWD = gw_depth)
 
 # data |> 
 #   filter(codigo %in% unique(data_anual$codigo)[1:6]) |> 
@@ -17,38 +39,50 @@ data <- read_rds('data/processed/rds/water_storage.rds') |>
 #   facet_wrap(~codigo,ncol =3) +
 #   theme_bw()
 
-data_anual <- data |>
-  mutate(año = year(fecha)) |>
-  group_by(codigo,año) |>
+data_anual <- data_mes |>
+  filter(!is.na(WS_SM)) |> 
+  group_by(codigo) |> 
+  mutate(WS_acum = cumsum(WS),
+         WS_SM_acum = cumsum(WS_SM),
+         GWD_lead3 = lead(GWD,3),
+         GWD_lead6 = lead(GWD,6),
+         GWD_lead12 = lead(GWD,12)) |> 
+  group_by(codigo,año = year(fecha)) |>
   reframe(
     # WS
-    WSsum    = sum(WS, na.rm = T),
-    WSplus   = sum(WS[WS > 0], na.rm = T),
-    WSminus  = sum(WS[WS < 0], na.rm = T),
-    WSmin    = min(WS, na.rm = T),
-    WSmax    = max(WS, na.rm = T),
-    WSrange  = WSmax - WSmin,
-    # WD
-    WDmean   = mean(WD, na.rm = T),
-    WDmin    = cleanInf(min(WD, na.rm = T)),
-    WDmax    = cleanInf(max(WD, na.rm = T)),
-    WDrange  = WDmax - WDmin,
-    WDdelta  = mean(tail(WD, 3), na.rm = TRUE) - mean(head(WD, 3), na.rm = TRUE)
+    WS_sum     = sum(WS, na.rm = T),
+    WS_SM_sum  = sum(WS_SM, na.rm = T),
+    WS_acum    = WS_acum[month(fecha)==12],
+    WS_SM_acum = WS_SM_acum[month(fecha)==12],
+    WS_recarga = sum(WS[WS > 0], na.rm = T),
+    WS_deficit = sum(WS[WS < 0], na.rm = T),
+    WS_SM_recarga = sum(WS_SM[WS_SM > 0], na.rm = T),
+    WS_SM_deficit = sum(WS_SM[WS_SM < 0], na.rm = T),
+    # GWD
+    GWD_mean   = mean(GWD, na.rm = T),
+    GWD_delta  = mean(tail(GWD, 3), na.rm = TRUE) - mean(head(GWD, 3), na.rm = TRUE),
+    GWD_lead3_mean   = mean(GWD_lead3, na.rm = T),
+    GWD_lead3_delta  = mean(tail(GWD_lead3, 3), na.rm = TRUE) - mean(head(GWD_lead3, 3), na.rm = TRUE),
+    GWD_lead6_mean   = mean(GWD_lead6, na.rm = T),
+    GWD_lead6_delta  = mean(tail(GWD_lead6, 3), na.rm = TRUE) - mean(head(GWD_lead6, 3), na.rm = TRUE),
+    GWD_lead12_mean   = mean(GWD_lead12, na.rm = T),
+    GWD_lead12_delta  = mean(tail(GWD_lead12, 3), na.rm = TRUE) - mean(head(GWD_lead12, 3), na.rm = TRUE)
   ) |>
-  group_by(codigo) |> 
-  mutate(
-    # ΔWS
-    WSdelta   = WSsum - lag(WSsum),
-    # anomalías (SSI)
-    SSI_WS    = (WSsum  - mean(WSsum, na.rm = TRUE)) / sd(WSsum,  na.rm = TRUE),
-    SSI_WD    = (WDmean - mean(WDmean, na.rm = TRUE)) / sd(WDmean, na.rm = TRUE)
-  ) |> 
-  filter(between(año,2000,2022)) |> 
-  mutate(WSaccum   = cumsum(WSsum),
-         norm = cumsum(rnorm(length(año)))) |> 
-  # mutate(across(matches('WS|WD'), \(x) as.numeric(scale(x,center=F)))) |>
-  ungroup() |> 
-  select(-c(WSmin,WSmax,WDmin,WDmax))
+  filter(año >= 2000)
+  # group_by(codigo) |> 
+  # mutate(
+  #   # ΔWS
+  #   WSdelta   = WSsum - lag(WSsum),
+  #   # anomalías (SSI)
+  #   SSI_WS    = (WSsum  - mean(WSsum, na.rm = TRUE)) / sd(WSsum,  na.rm = TRUE),
+  #   GWD_SSI    = (WDmean - mean(GWD_mean, na.rm = TRUE)) / sd(GWD_mean, na.rm = TRUE)
+  # ) |> 
+  # filter(between(año,2000,2022)) |> 
+  # mutate(WSaccum   = cumsum(WSsum),
+  #        norm = cumsum(rnorm(length(año)))) |> 
+  # # mutate(across(matches('WS|WD'), \(x) as.numeric(scale(x,center=F)))) |>
+  # ungroup() |> 
+  # select(-c(WSmin,WSmax,WDmin,WDmax))
 
 # data |>
 #   mutate(año = year(fecha)) |>
@@ -74,7 +108,7 @@ data_anual <- data |>
 #   facet_wrap(~codigo,ncol=3) +
 #   theme_bw()
 
-write_rds(data_anual,'data/processed/rds/water_storage_anual.rds')
+write_rds(data_anual,'data/processed/rds/water_balance_anual.rds')
   
 data_anual |>
   pivot_longer(cols=matches('WS|WD'),values_to = 'value',names_to = 'variable') |>
@@ -109,8 +143,8 @@ data_cor <- data_anual |>
   reframe(
     cor_mat = list(
       cor(
-        cbind(SSI_WS, WSplus, WSminus, WSrange, WSdelta,norm,WSaccum),
-        cbind(SSI_WD, WDrange, WDdelta),
+        as.matrix(across(contains("WS"))),
+        as.matrix(across(contains("GWD"))),
         use = "pairwise.complete.obs",
       )
     )
@@ -130,9 +164,9 @@ data_cor <- data_anual |>
   unnest(cor_long) |> 
   unite(col = 'comparison',WS_metric,WD_metric,sep = ' vs ')
 
-write_rds(data_cor,'data/processed/rds/water_storage_correlation.rds')
+write_rds(data_cor,'data/processed/rds/water_balance_correlation.rds')
 
-data_cor |>  
+cor_frequency <- data_cor |>  
   group_by(codigo, comparison) |>
   reframe(abs_r = abs(r)) |>
   group_by(codigo) |>
@@ -140,7 +174,9 @@ data_cor |>
   ungroup() |> 
   select(comparison) |> 
   count(comparison, name = "frequency") |>
-  arrange(frequency) |> 
+  arrange(frequency)
+
+cor_frequency |> 
   ggplot(aes(x = reorder(comparison, frequency), y = frequency)) +
   geom_col() +
   coord_flip() +
@@ -153,24 +189,18 @@ data_cor |>
 ggsave('output/fig/water_correlation_frequency.png',height = 6, width = 8)
 
 data_grupo <- data_cor |>
-  filter(comparison == c('WSminus vs SSI_WD')) |>
-  mutate(grupo = cut(r,breaks = rev(c(Inf, 0, -.2, -.4, -.6,-.8)),
-                  labels = 1:5,
-                  include.lowest = T, right = F))
+  group_by(codigo) |> 
+  reframe(cor_mean = mean(abs(r[comparison %in% tail(cor_frequency$comparison,4)]), na.rm = T)) |> 
+  mutate(grupo = ntile(cor_mean, 5))
 
 order_codes <- data_grupo |>
-  filter(comparison == "WSminus vs SSI_WD") |>
-  arrange(desc(r)) |>
+  arrange(desc(cor_mean)) |>
   pull(codigo)
 
-group_name <- c('r < -0.6','-0.6 < r < -0.4','-0.4 < r < -0.2','-0.2 < r < 0','r > 0')
-
 data_cor |> 
-  filter(comparison %in% c('WSminus vs SSI_WD',
-                           'WSrange vs SSI_WD',
-                           'norm vs SSI_WD',
-                           'WSaccum vs SSI_WD')) |> 
+  filter(comparison %in% tail(cor_frequency$comparison,4)) |> 
   mutate(codigo = factor(codigo,levels = order_codes)) |> 
+  arrange(codigo) |> 
   left_join(data_grupo |>  
               mutate(codigo = factor(codigo,levels = order_codes)) |> 
               select(codigo,grupo)) |> 
