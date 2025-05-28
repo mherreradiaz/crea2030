@@ -6,11 +6,10 @@ library(patchwork)
 
 cleanInf <- \(x) ifelse(is.infinite(x),NA,x)
 
-# seleccionar pozos con estacionalidad
+# pozos con estacionalidad
 
 read_rds('data/processed/rds/water_balance.rds') |> 
-  filter(year(fecha) >= 1999) |> 
-  # filter(codigo %in% pozos_estacionales) |> 
+  filter(year(fecha) >= 1999) |>
   group_by(codigo,año = year(fecha)) |> 
   mutate(gw_depth = as.numeric(scale(gw_depth,center=F))) |> 
   group_by(codigo, mes = month(fecha)) |> 
@@ -21,25 +20,15 @@ read_rds('data/processed/rds/water_balance.rds') |>
   geom_smooth() +
   scale_x_continuous(breaks = 1:12) +
   facet_wrap(~codigo,ncol=9,scales='free_y') +
-  # facet_wrap(~codigo,ncol=5) +
   theme_bw()
 
-pozos_estacionales <- c(5423019,5423023,5426005,5426006,5426008,
-                        5426015,5426016,5426020,5426022,5428008)
+pozos_estacionales <- c(5423017,5423023,5425006,5426005,5426006,
+                        5426008,5426015,5426016,5426020,542622,5428008)
 
 # calcular métricas anuales
 
-data_mes <- read_rds('data/processed/rds/water_balance.rds') |> 
-  rename(WS = ws,WS_SM = ws_sm,GWD = gw_depth)
-
-# data |> 
-#   filter(codigo %in% unique(data_anual$codigo)[1:6]) |> 
-#   ggplot(aes(fecha,WS)) +
-#   geom_line(linewidth = 1,alpha = .7) +
-#   facet_wrap(~codigo,ncol =3) +
-#   theme_bw()
-
-data_anual <- data_mes |>
+data_anual <- read_rds('data/processed/rds/water_balance.rds') |> 
+  rename(WS = ws,WS_SM = ws_sm,GWD = gw_depth) |>
   filter(!is.na(WS_SM)) |> 
   group_by(codigo) |> 
   mutate(WS_acum = cumsum(WS),
@@ -68,142 +57,73 @@ data_anual <- data_mes |>
     GWD_lead12_mean   = mean(GWD_lead12, na.rm = T),
     GWD_lead12_delta  = mean(tail(GWD_lead12, 3), na.rm = TRUE) - mean(head(GWD_lead12, 3), na.rm = TRUE)
   ) |>
-  filter(año >= 2000)
-  # group_by(codigo) |> 
-  # mutate(
-  #   # ΔWS
-  #   WSdelta   = WSsum - lag(WSsum),
-  #   # anomalías (SSI)
-  #   SSI_WS    = (WSsum  - mean(WSsum, na.rm = TRUE)) / sd(WSsum,  na.rm = TRUE),
-  #   GWD_SSI    = (WDmean - mean(GWD_mean, na.rm = TRUE)) / sd(GWD_mean, na.rm = TRUE)
-  # ) |> 
-  # filter(between(año,2000,2022)) |> 
-  # mutate(WSaccum   = cumsum(WSsum),
-  #        norm = cumsum(rnorm(length(año)))) |> 
-  # # mutate(across(matches('WS|WD'), \(x) as.numeric(scale(x,center=F)))) |>
-  # ungroup() |> 
-  # select(-c(WSmin,WSmax,WDmin,WDmax))
-
-# data |>
-#   mutate(año = year(fecha)) |>
-#   group_by(codigo,año) |>
-#   reframe(WSsum    = sum(WS, na.rm = T)) |>
-#   group_by(codigo) |> 
-#   mutate(WSaccum_1980   = cumsum(if_else(año >= 1980, WSsum, 0)),
-#          WSaccum_1990   = cumsum(if_else(año >= 1990, WSsum, 0)),
-#          WSaccum_1999   = cumsum(if_else(año >= 1999, WSsum, 0)),
-#          WSaccum_2000   = cumsum(if_else(año >= 2000, WSsum, 0)),
-#          WSaccum_2001   = cumsum(if_else(año >= 2001, WSsum, 0)),
-#          WSaccum_2005   = cumsum(if_else(año >= 2005, WSsum, 0))) |> 
-#   mutate(across(contains('WS'),\(col) if_else(col == 0, NA, col))) |> 
-#   ungroup() |>
-#   pivot_longer(cols = contains('WSaccum'), names_to = 'var', values_to = 'value') |> 
-#   mutate(var = gsub('WSaccum_','',var),
-#          var = factor(var,levels = c('2005','2001','2000','1999','1990','1980','WSsum'))) |> 
-#   filter(codigo %in% sample(unique(data$codigo),9),
-#          año >= 2000) |> 
-#   ggplot(aes(año,value,color=var)) +
-#   geom_hline(yintercept = 0, linetype = 'dashed', alpha = .5) +
-#   geom_line(linewidth = 1, alpha = .7) +
-#   facet_wrap(~codigo,ncol=3) +
-#   theme_bw()
+  filter(between(año,2000,2021))
 
 write_rds(data_anual,'data/processed/rds/water_balance_anual.rds')
-  
-data_anual |>
-  pivot_longer(cols=matches('WS|WD'),values_to = 'value',names_to = 'variable') |>
-  separate(col = variable, into = c('variable','metric'), sep = 2) |>
-  filter(variable == 'WS',
-         codigo %in% unique(data_anual$codigo)[1:9]) |>
-  ggplot(aes(año,value,color = metric)) +
-  geom_hline(yintercept = 0, linetype = 'dashed', alpha = .5) +
-  # geom_point(size = 1) +
-  geom_line(linewidth = 1,alpha = .7) +
-  facet_wrap(~codigo,ncol =3) +
-  labs(y = 'scaled values',x = NULL, title = 'WS') +
-  scale_x_continuous(limits = c(2000,2022), breaks = seq(2000,2022,by=4), expand = c(0,0.5)) +
-  theme_bw()
 
-# data_cor <- data_anual |>
-#   group_by(codigo) |>
-#   mutate(norm = cumsum(rnorm(length(año))))
-
-# data_cor |> 
-#   pivot_longer(cols = c(SSI_WD,norm),names_to = 'var',values_to = 'value') |> 
-#   filter(codigo %in% unique(data_cor$codigo)[1:4]) |> 
-#   ggplot(aes(año,value,color = var)) +
-#   geom_line() +
-#   geom_point() +
-#   facet_wrap(~codigo,ncol=2)
-
-set.seed(123)
+# data_anual |>
+#   pivot_longer(cols=c('GWD_mean','GWD_lead3_mean','GWD_lead6_mean','WS_acum','WS_SM_acum','WS_deficit'),
+#                values_to = 'value',names_to = 'variable') |>
+#   # group_by(codigo,variable) |>
+#   # mutate(value = as.numeric(scale(value))) |>
+#   filter(codigo %in% unique(data_anual$codigo)[1:6]) |>
+#   # filter(!(codigo %in% pozos_estacionales)) |>
+#   ggplot(aes(año,value,color = variable)) +
+#   geom_line(linewidth = 1.1, alpha = .6) +
+#   facet_wrap(~codigo,ncol=2) +
+#   theme_bw() +
+#   theme(strip.background = element_rect(fill = 'white'))
 
 data_cor <- data_anual |>
   group_by(codigo) |>
-  reframe(
-    cor_mat = list(
-      cor(
-        as.matrix(across(contains("WS"))),
-        as.matrix(across(contains("GWD"))),
-        use = "pairwise.complete.obs",
-      )
-    )
-  ) |>
-  mutate(
-    cor_long = map(cor_mat, \(mat) {
-      as.data.frame(mat) |>
-        tibble::rownames_to_column("WS_metric") |>
-        pivot_longer(
-          cols      = -WS_metric,
-          names_to  = "WD_metric",
-          values_to = "r"
-        )
-    })
-  ) |>
+  reframe(cor_mat = list(cor(as.matrix(across(contains("WS"))),
+                             as.matrix(across(contains("GWD"))),
+                             use = "pairwise.complete.obs"))) |>
+  mutate(cor_long = map(cor_mat, \(mat) {
+    as.data.frame(mat) |>
+      tibble::rownames_to_column("WS_metric") |>
+      pivot_longer(cols      = -WS_metric,
+                   names_to  = "WD_metric",
+                   values_to = "r")})) |>
   select(codigo, cor_long) |>
   unnest(cor_long) |> 
   unite(col = 'comparison',WS_metric,WD_metric,sep = ' vs ')
 
 write_rds(data_cor,'data/processed/rds/water_balance_correlation.rds')
 
-cor_frequency <- data_cor |>  
+cor_frequency <- data_cor |>
   group_by(codigo, comparison) |>
   reframe(abs_r = abs(r)) |>
   group_by(codigo) |>
   slice_max(order_by = abs_r, n = 1) |>
-  ungroup() |> 
-  select(comparison) |> 
+  ungroup() |>
+  select(comparison) |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-cor_frequency |> 
-  ggplot(aes(x = reorder(comparison, frequency), y = frequency)) +
-  geom_col() +
-  coord_flip() +
-  scale_y_continuous(expand = c(0,0), breaks = seq(0,14,by=2), minor_breaks = 0:14, limits = c(0,13)) +
-  labs(
-    x = "WS vs WD comparison",
-    y = "frequency") +
-  theme_bw()
+# cor_frequency |> 
+#   ggplot(aes(x = reorder(comparison, frequency), y = frequency)) +
+#   geom_col() +
+#   coord_flip() +
+#   scale_y_continuous(expand = c(0,0), breaks = seq(0,14,by=2), minor_breaks = 0:14, limits = c(0,13)) +
+#   labs(
+#     x = "WS vs WD comparison",
+#     y = "frequency") +
+#   theme_bw()
+# 
+# ggsave('output/fig/water_correlation_frequency.png',height = 6, width = 8)
 
-ggsave('output/fig/water_correlation_frequency.png',height = 6, width = 8)
 
-data_grupo <- data_cor |>
-  group_by(codigo) |> 
-  reframe(cor_mean = mean(abs(r[comparison %in% tail(cor_frequency$comparison,4)]), na.rm = T)) |> 
-  mutate(grupo = ntile(cor_mean, 5))
+# visualizar
 
-order_codes <- data_grupo |>
-  arrange(desc(cor_mean)) |>
-  pull(codigo)
-
-data_cor |> 
-  filter(comparison %in% tail(cor_frequency$comparison,4)) |> 
-  mutate(codigo = factor(codigo,levels = order_codes)) |> 
-  arrange(codigo) |> 
-  left_join(data_grupo |>  
-              mutate(codigo = factor(codigo,levels = order_codes)) |> 
-              select(codigo,grupo)) |> 
+data_cor |> # más frecuentes
+  filter(comparison %in% rev(tail(pull(cor_frequency,comparison),4))) |>
+  pivot_wider(names_from = comparison,values_from = r) |> 
+  mutate(cor_mean = rowMeans(abs(pick(-codigo))),
+         codigo = fct_reorder(as.factor(codigo),cor_mean,.desc = T)) |> 
+  select(-cor_mean) |> 
+  pivot_longer(cols = -codigo, names_to  = 'comparison',values_to = 'r') |> 
+  mutate(comparison = factor(comparison,levels = rev(tail(pull(cor_frequency,comparison),4)))) |> 
   ggplot(aes(comparison, y = codigo, fill = r)) +
   geom_tile() +
   geom_text(aes(label = round(r, 2)), size = 3, color = 'grey20') +
@@ -211,11 +131,74 @@ data_cor |>
   scale_x_discrete(expand = c(0,0)) +
   scale_y_discrete(expand = c(0,0)) +
   labs(x = NULL,y = "well") +
-  facet_grid(rows = vars(grupo), space = 'free_y', scales = 'free_y', switch = 'y') +
   theme_bw() +
   theme(strip.background = element_rect(fill = 'white'))
 
-ggsave('output/fig/water_correlation.png',height = 6, width = 8)
+ggsave('output/fig/water_correlation.png',height = 6, width = 10)
+
+data_cor |> # WS normal y SM con GWD
+  filter(comparison %in% c('WS_acum vs GWD_mean','WS_SM_acum vs GWD_mean')) |>
+  pivot_wider(names_from = comparison,values_from = r) |> 
+  mutate(cor_mean = rowMeans(abs(pick(-codigo))),
+         codigo = fct_reorder(as.factor(codigo),cor_mean,.desc = T)) |> 
+  select(-cor_mean) |> 
+  pivot_longer(cols = -codigo, names_to  = 'comparison',values_to = 'r') |> 
+  mutate(comparison = factor(comparison,levels = unique(comparison))) |> 
+  ggplot(aes(comparison, y = codigo, fill = r)) +
+  geom_tile() +
+  geom_text(aes(label = round(r, 2)), size = 3, color = 'grey20') +
+  scale_fill_distiller(palette   = "RdBu",direction = 1,limits= c(-1, 1),name = "r") +
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_discrete(expand = c(0,0)) +
+  labs(x = NULL,y = "well") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = 'white'))
+
+ggsave('output/fig/water_correlation_WS_acum_&_WS_SM_acum.png',height = 6, width = 6)
+
+data_cor |> # WS normal y desfases con GWD
+  filter(comparison %in% c('WS_acum vs GWD_mean','WS_acum vs GWD_lead3_mean',
+                           'WS_acum vs GWD_lead6_mean','WS_acum vs GWD_lead12_mean')) |>
+  pivot_wider(names_from = comparison,values_from = r) |> 
+  mutate(cor_mean = rowMeans(abs(pick(-codigo))),
+         codigo = fct_reorder(as.factor(codigo),cor_mean,.desc = T)) |> 
+  select(-cor_mean) |> 
+  pivot_longer(cols = -codigo, names_to  = 'comparison',values_to = 'r') |>
+  mutate(comparison = factor(comparison,levels = unique(comparison))) |> 
+  ggplot(aes(comparison, y = codigo, fill = r)) +
+  geom_tile() +
+  geom_text(aes(label = round(r, 2)), size = 3, color = 'grey20') +
+  scale_fill_distiller(palette   = "RdBu",direction = 1,limits= c(-1, 1),name = "r") +
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_discrete(expand = c(0,0)) +
+  labs(x = NULL,y = "well") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = 'white'))
+
+ggsave('output/fig/water_correlation_WS_acum.png',height = 6, width = 10)
+
+data_cor |> # WS SM y desfases con GWD
+  filter(comparison %in% c('WS_SM_acum vs GWD_mean','WS_SM_acum vs GWD_lead3_mean',
+                           'WS_SM_acum vs GWD_lead6_mean','WS_SM_acum vs GWD_lead12_mean')) |>
+  pivot_wider(names_from = comparison,values_from = r) |> 
+  mutate(cor_mean = rowMeans(abs(pick(-codigo))),
+         codigo = fct_reorder(as.factor(codigo),cor_mean,.desc = T)) |> 
+  select(-cor_mean) |> 
+  pivot_longer(cols = -codigo, names_to  = 'comparison',values_to = 'r') |> 
+  mutate(comparison = factor(comparison,levels = unique(comparison))) |> 
+  ggplot(aes(comparison, y = codigo, fill = r)) +
+  geom_tile() +
+  geom_text(aes(label = round(r, 2)), size = 3, color = 'grey20') +
+  scale_fill_distiller(palette   = "RdBu",direction = 1,limits= c(-1, 1),name = "r") +
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_discrete(expand = c(0,0)) +
+  labs(x = NULL,y = "well") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = 'white'))
+
+ggsave('output/fig/water_correlation_WS_SM_acum.png',height = 6, width = 10)
+
+
 
 grupos_norm <- data_cor |>
   filter(comparison == c('norm vs SSI_WD')) |>

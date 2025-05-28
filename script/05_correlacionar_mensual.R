@@ -16,16 +16,30 @@ data |>
   group_by(codigo, mes = month(fecha)) |> 
   reframe(WD = mean(WD,na.rm=T)) |> 
   # filter(codigo %in% unique(data$codigo)[15:27]) |> 
+  filter(codigo %in% pozos_lowcor) |> 
   ggplot(aes(mes,WD)) +
   geom_point() +
   geom_line(linetype = 'dashed',col = 'red') +
   geom_smooth() +
   scale_x_continuous(breaks = 1:12) +
-  facet_wrap(~codigo,ncol=9) +
+  facet_wrap(~codigo,ncol=3) +
+  theme_bw()
+
+data |> 
+  # filter(codigo %in% unique(data$codigo)[15:27]) |> 
+  filter(!(codigo %in% lowcor_sm)) |> 
+  ggplot(aes(fecha,WD)) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~codigo,ncol=4,scales='free_y') +
   theme_bw()
 
 pozos_estacionales <- c(5423017,5423023,5425006,5426005,5426006,
                         5426008,5426015,5426016,5426020,542622,5428008)
+
+pozos_lowcor <- c(5426008,5428005,5425004,5426015,5425006,5423022)
+
+lowcor_sm <- c(5426008,5423015,5410018,5428008,5426018,5423018,5423019,5426005,5426006)
 
 data_cor <- data |> 
   group_by(codigo) |> 

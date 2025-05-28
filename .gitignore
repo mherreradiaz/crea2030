@@ -4,4 +4,6 @@
 .Ruserdata
 
 data/raw/raster/
+data/raw/vectorial/
 data/processed/raster/
+data/processed/vectorial/cobertura/

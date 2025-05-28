@@ -115,6 +115,22 @@ data |>
   theme_bw() +
   theme(strip.background = element_rect(fill = 'white'))
 
+# descarga MOD12Q2
 
+urls <- read_csv('data/raw/tabulada/Fenologia-Aconcagua-download-list.txt',col_names = F) |> 
+  rename('url' = 1) |> 
+  pull(url)
+  
+dest_dir <- "data/raw/raster/MOD12Q2"
 
+httr::set_config(httr::config(netrc = TRUE))
 
+urls |>
+  lapply(\(url) {
+    fname <- basename(url)
+    dest  <- file.path(dest_dir, fname)
+    download.file(url,
+                  destfile = dest,
+                  method   = "curl")
+  }) |>
+  invisible()
