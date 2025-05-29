@@ -68,3 +68,33 @@ conf_matrix_na <- data |>
   tibble::column_to_rownames('CONAF')
 
 conf_matrix_na
+
+#
+
+data_cont <- conf_matrix_na |> 
+  select(-1) |>
+  mutate(conaf = row.names(conf_matrix_na),
+         .before = `1`,
+         conaf = ifelse(conaf == -999,"no_data",conaf)) |> 
+  pivot_longer(cols = `1`:`10`,names_to = 'MODIS',values_to = 'n') |> 
+  select(MODIS,conaf,n) |> 
+  arrange(MODIS) |> 
+  mutate(MODIS = as.factor(MODIS),
+         conaf = as.factor(conaf))
+
+write_rds(data_cont,'data/processed/rds/data_contingencia_modis_conaf.rds')
+
+data_cont |>
+  group_by(MODIS) |> 
+  mutate(pred = n/sum(n)) |> 
+  slice_max(n, n = 4) |> 
+  mutate(conaf = as.factor(conaf)) |> 
+  ggplot(aes(conaf,`1`)) +
+  geom_col() +
+  theme_bw
+
+  
+  
+
+colMeans(conf_matrix_na)
+
