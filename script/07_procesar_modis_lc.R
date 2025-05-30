@@ -84,14 +84,46 @@ data_cont <- conf_matrix_na |>
 
 write_rds(data_cont,'data/processed/rds/data_contingencia_modis_conaf.rds')
 
-data_cont |>
+
+cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
+
+conaf <- vect('data/raw/vectorial/catastro_forestal.shp') |> 
+  crop(cuenca)
+
+data <- read_rds('data/processed/rds/data_contingencia_modis_conaf.rds') |> 
+  mutate(MODIS = as.numeric(as.character(MODIS))) |> 
+  mutate(MODIS = factor(case_when(MODIS == 1  ~ "Bosque siempreverde de coníferas",
+                                  MODIS == 2  ~ "Bosque siempreverde de hoja ancha",
+                                  MODIS == 6  ~ "Matorrales densos",
+                                  MODIS == 7  ~ "Matorrales abiertos",
+                                  MODIS == 8  ~ "Sabana arbustiva",
+                                  MODIS == 9  ~ "Sabana",
+                                  MODIS == 10 ~ "Pastizales",
+                                  .default = NULL),
+                        levels = c("Bosque siempreverde de coníferas",
+                                   "Bosque siempreverde de hoja ancha",
+                                   "Matorrales densos",
+                                   "Matorrales abiertos",
+                                   "Sabana arbustiva",
+                                   "Sabana",
+                                   "Pastizales")))
+
+data_cont <- data |> 
   group_by(MODIS) |> 
-  mutate(pred = n/sum(n)) |> 
+  mutate(pred = n/sum(n))
+  
+data_px <- data_cont |> 
+  reframe(sum = sum(n))
+
+data_cont |> 
   slice_max(n, n = 4) |> 
-  mutate(conaf = as.factor(conaf)) |> 
-  ggplot(aes(conaf,`1`)) +
+  ggplot(aes(conaf,pred)) +
   geom_col() +
-  theme_bw
+  geom_text(data = data_px, aes(x = -Inf, y = .7, label = sum), hjust = -.1) +
+  facet_wrap(~MODIS,ncol = 3, scales = 'free_x') +
+  scale_y_continuous(limits = c(0,.8), expand = c(0,0)) +
+  theme_bw() +
+  theme(strip.background = element_rect(fill='white'))
 
   
   

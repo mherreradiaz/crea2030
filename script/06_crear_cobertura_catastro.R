@@ -18,7 +18,7 @@ modal_per <- function(x) {
 
 # procesar catastro forestal
 
-v <- grep('forestal',list.files('data/raw/vectorial',full.names=T,pattern = '.shp'),value=T)[3] |> 
+v <- grep('forestal',list.files('data/raw/vectorial',full.names=T,pattern = '.shp'),value=T) |> 
   vect() |>
   mutate(CLASS = an(ID_USO)*100000 + an(ID_SUBUSO)*10000 + an(ID_ESTRUC)*1000 + an(ID_COBER)*100 + an(ID_TIFO)) |> 
   select(CLASS,USO,SUBUSO,ESTRUCTURA,COBERTURA,TIPO_FORES) |> 
@@ -42,8 +42,9 @@ v |>
 
 # cobertura forestal
 
-v <- vect('data/processed/vectorial/cobertura/forestal.shp') |> 
-  select(LVL_3) |> values() |> distinct() |> write_csv('clases.csv')
+v <- vect('data/processed/vectorial/cobertura/forestal.shp')
+  
+v |> values() |> distinct() |> write_csv('data/processed/misc/clases.csv')
 
 r <- list.files('data/raw/raster/MOD12Q2',full.names=T,pattern = '.tif')[1] |>
   rast() |> 

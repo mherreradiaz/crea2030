@@ -1,0 +1,54 @@
+CLASS,LVL_1,LVL_2,LVL_3,LVL_4,LVL_5,USO,SUBUSO,ESTRUCTURA,COBERTURA,TIPO_FORES
+313000,3,31,313,3130,313000,Praderas y Matorrales,Praderas,Praderas Anuales,No Aplica,NA
+314000,3,31,314,3140,314000,Praderas y Matorrales,Praderas,Pradera Perenne,No Aplica,NA
+315000,3,31,315,3150,315000,Praderas y Matorrales,Praderas,Estepa Andina Central,No Aplica,NA
+320100,3,32,320,3201,320100,Praderas y Matorrales,Matorral-Pradera,No Aplica,Denso,NA
+320200,3,32,320,3202,320200,Praderas y Matorrales,Matorral-Pradera,No Aplica,Semidenso,NA
+320300,3,32,320,3203,320300,Praderas y Matorrales,Matorral-Pradera,No Aplica,Abierto,NA
+320400,3,32,320,3204,320400,Praderas y Matorrales,Matorral-Pradera,No Aplica,Muy Abierto,NA
+320500,3,32,320,3205,320500,Praderas y Matorrales,Matorral-Pradera,No Aplica,Escaso,NA
+330100,3,33,330,3301,330100,Praderas y Matorrales,Matorral,No Aplica,Denso,NA
+330200,3,33,330,3302,330200,Praderas y Matorrales,Matorral,No Aplica,Semidenso,NA
+330300,3,33,330,3303,330300,Praderas y Matorrales,Matorral,No Aplica,Abierto,NA
+330400,3,33,330,3304,330400,Praderas y Matorrales,Matorral,No Aplica,Muy Abierto,NA
+330500,3,33,330,3305,330500,Praderas y Matorrales,Matorral,No Aplica,Escaso,NA
+340100,3,34,340,3401,340100,Praderas y Matorrales,Matorral Arborescente,No Aplica,Denso,NA
+340200,3,34,340,3402,340200,Praderas y Matorrales,Matorral Arborescente,No Aplica,Semidenso,NA
+340300,3,34,340,3403,340300,Praderas y Matorrales,Matorral Arborescente,No Aplica,Abierto,NA
+340400,3,34,340,3404,340400,Praderas y Matorrales,Matorral Arborescente,No Aplica,Muy Abierto,NA
+340500,3,34,340,3405,340500,Praderas y Matorrales,Matorral Arborescente,No Aplica,Escaso,NA
+350100,3,35,350,3501,350100,Praderas y Matorrales,Matorral con Suculentas,No Aplica,Denso,NA
+350200,3,35,350,3502,350200,Praderas y Matorrales,Matorral con Suculentas,No Aplica,Semidenso,NA
+350300,3,35,350,3503,350300,Praderas y Matorrales,Matorral con Suculentas,No Aplica,Abierto,NA
+350400,3,35,350,3504,350400,Praderas y Matorrales,Matorral con Suculentas,No Aplica,Muy Abierto,NA
+350500,3,35,350,3505,350500,Praderas y Matorrales,Matorral con Suculentas,No Aplica,Escaso,NA
+360000,3,36,360,3600,360000,Praderas y Matorrales,Formación de Suculentas,No Aplica,No Aplica,NA
+411000,4,41,411,4110,411000,Bosques,Plantación,Adulta,No Aplica,NA
+421105,4,42,421,4211,421105,Bosques,Bosque Nativo,Adulto,Denso,Palma chilena
+421108,4,42,421,4211,421108,Bosques,Bosque Nativo,Adulto,Denso,Roble-Hualo
+421111,4,42,421,4211,421111,Bosques,Bosque Nativo,Adulto,Denso,Esclerófilo
+421205,4,42,421,4212,421205,Bosques,Bosque Nativo,Adulto,Semidenso,Palma chilena
+421208,4,42,421,4212,421208,Bosques,Bosque Nativo,Adulto,Semidenso,Roble-Hualo
+421211,4,42,421,4212,421211,Bosques,Bosque Nativo,Adulto,Semidenso,Esclerófilo
+421304,4,42,421,4213,421304,Bosques,Bosque Nativo,Adulto,Abierto,Cipres de la Cordillera
+421305,4,42,421,4213,421305,Bosques,Bosque Nativo,Adulto,Abierto,Palma chilena
+421308,4,42,421,4213,421308,Bosques,Bosque Nativo,Adulto,Abierto,Roble-Hualo
+421311,4,42,421,4213,421311,Bosques,Bosque Nativo,Adulto,Abierto,Esclerófilo
+421405,4,42,421,4214,421405,Bosques,Bosque Nativo,Adulto,Muy Abierto,Palma chilena
+421411,4,42,421,4214,421411,Bosques,Bosque Nativo,Adulto,Muy Abierto,Esclerófilo
+422105,4,42,422,4221,422105,Bosques,Bosque Nativo,Renoval,Denso,Palma chilena
+422108,4,42,422,4221,422108,Bosques,Bosque Nativo,Renoval,Denso,Roble-Hualo
+422111,4,42,422,4221,422111,Bosques,Bosque Nativo,Renoval,Denso,Esclerófilo
+422205,4,42,422,4222,422205,Bosques,Bosque Nativo,Renoval,Semidenso,Palma chilena
+422208,4,42,422,4222,422208,Bosques,Bosque Nativo,Renoval,Semidenso,Roble-Hualo
+422211,4,42,422,4222,422211,Bosques,Bosque Nativo,Renoval,Semidenso,Esclerófilo
+422305,4,42,422,4223,422305,Bosques,Bosque Nativo,Renoval,Abierto,Palma chilena
+422308,4,42,422,4223,422308,Bosques,Bosque Nativo,Renoval,Abierto,Roble-Hualo
+422311,4,42,422,4223,422311,Bosques,Bosque Nativo,Renoval,Abierto,Esclerófilo
+422405,4,42,422,4224,422405,Bosques,Bosque Nativo,Renoval,Muy Abierto,Palma chilena
+422411,4,42,422,4224,422411,Bosques,Bosque Nativo,Renoval,Muy Abierto,Esclerófilo
+423311,4,42,423,4233,423311,Bosques,Bosque Nativo,Adulto-Renoval,Abierto,Esclerófilo
+431400,4,43,431,4314,431400,Bosques,Bosque Mixto,Nativo-Plantación,Muy Abierto,NA
+432100,4,43,432,4321,432100,Bosques,Bosque Mixto,Nativo con Exóticas Asilvestradas,Denso,NA
+432200,4,43,432,4322,432200,Bosques,Bosque Mixto,Nativo con Exóticas Asilvestradas,Semidenso,NA
+432300,4,43,432,4323,432300,Bosques,Bosque Mixto,Nativo con Exóticas Asilvestradas,Abierto,NA
