@@ -53,8 +53,8 @@ r_cluster_std <- r_cluster |>
   left_join(distinct(select(data_cluster,id,cluster_std))) |> 
   pull(cluster_std))
 
-plot(r_cluster_normal[[1:6]])
-plot(r_cluster_std[[1:6]])
+plot(r_cluster_normal)
+plot(r_cluster_std)
 
 plot(r_cluster)
  
@@ -65,6 +65,31 @@ data_cluster <- read_rds('data/processed/rds/gwproxy_cluster.rds')
 data_cluster_normal <- data_cluster |> 
   filter(variable== 'WS_SM_acum') |> 
   select(año,cluster = cluster_normal,WS_SM_acum) |> 
+  mutate(cluster_type = 'normal',
+         .before = cluster)
+
+data_cluster_std <- data_cluster |> 
+  filter(variable== 'WS_SM_acum_std') |> 
+  select(año,cluster = cluster_std,WS_SM_acum) |> 
+  mutate(cluster_type = 'std',
+         .before = cluster)
+
+data_combined <- bind_rows(data_cluster_normal,data_cluster_std)
+
+data_combined |> 
+  ggplot(aes(año,WS_SM_acum,color=cluster)) +
+  # geom_point(aes(group = id)) +
+  geom_jitter(size = .1, width = 0.2, height = 0,alpha = .3) +
+  geom_hline(yintercept = 0, linetype = 'dashed',alpha = .7) +
+  geom_smooth(method = 'loess', span = .2,linewidth = 1.5) +
+  scale_x_continuous(expand = c(0,0.25), breaks = seq(2000,2024,by=4),
+                     minor_breaks = 2000:2024) +
+  labs(x = NULL) +
+  facet_wrap(~cluster_type,ncol = 1, scales = 'free_y') +
+  theme_bw() +
+  theme(strip.background = element_rect(fill='white'))
+
+
 
 p1 <- data_cluster |> 
   filter(variable== 'WS_SM_acum') |> 
