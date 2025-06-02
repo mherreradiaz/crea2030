@@ -61,19 +61,6 @@ data_anual <- read_rds('data/processed/rds/water_balance.rds') |>
 
 write_rds(data_anual,'data/processed/rds/water_balance_anual.rds')
 
-# read_rds('data/processed/rds/water_balance_anual.rds') |>
-#   pivot_longer(cols=c('GWD_mean','WS_acum','WS_SM_acum'),
-#                values_to = 'value',names_to = 'variable') |>
-#   group_by(codigo,variable) |>
-#   mutate(value = as.numeric(scale(value,center = F))) |>
-#   # filter(codigo %in% unique(data_anual$codigo)[1:6]) |>
-#   # filter(!(codigo %in% pozos_estacionales)) |>
-#   ggplot(aes(año,value,color = variable)) +
-#   geom_line(linewidth = 1.1, alpha = .6) +
-#   facet_wrap(~codigo,ncol=5) +
-#   theme_bw() +
-#   theme(strip.background = element_rect(fill = 'white'))
-
 # correlacion
 
 data_anual <- read_rds('data/processed/rds/water_balance_anual.rds')
@@ -124,6 +111,8 @@ write_rds(data_pearson,'data/processed/rds/water_balance_correlation_pearson.rds
 write_rds(data_spearman,'data/processed/rds/water_balance_correlation_spearman.rds')
 
 # visualizar pearson
+
+data_pearson <- read_rds('data/processed/rds/water_balance_correlation_pearson.rds')
 
 plot_cor <- function(data, comparisons_vector, output = NULL, width = 10, height = 6) {
   codigo_order <- data |> 
@@ -202,5 +191,109 @@ plot_cor(data_spearman,c('WS_acum vs GWD_mean','WS_acum vs GWD_lead3_mean',
 plot_cor(data_spearman,c('WS_SM_acum vs GWD_mean','WS_SM_acum vs GWD_lead3_mean',
                         'WS_SM_acum vs GWD_lead6_mean','WS_SM_acum vs GWD_lead12_mean'),
          output = 'output/fig/correlation/spearman_WS_SM_acum.png')
+
+# visualizar series
+
+data_anual <- read_rds('data/processed/rds/water_balance_anual.rds')
+
+plot_ts <- \(data,method, output = NULL, width = 12, height = 6) {
+  data_cor <- read_rds(paste0('data/processed/rds/water_balance_correlation_',method,'.rds')) |> 
+    filter(comparison == 'WS_SM_acum vs GWD_mean') |>
+    mutate(cor_group = factor(cut(r,
+                                  breaks = c(-1, -0.8, -0.6, -0.4, -0.2, 0, Inf),
+                                  labels = c("-0.8 ≥ r ≥ -1", "-0.6 > r ≥ -0.8", "-0.4 > r ≥ -0.6",
+                                             "-0.2 > r ≥ -0.4", "0 > r ≥ -0.2", "r > 0"),
+                                  right = TRUE, include.lowest = TRUE),
+                              levels = c("-0.8 ≥ r ≥ -1", "-0.6 > r ≥ -0.8", "-0.4 > r ≥ -0.6",
+                                         "-0.2 > r ≥ -0.4", "0 > r ≥ -0.2", "r > 0")))
+  
+  data_plot <- data_anual |>
+    pivot_longer(cols=c('GWD_mean','WS_SM_acum'),
+                 values_to = 'value',names_to = 'variable') |>
+    group_by(codigo,variable) |>
+    mutate(value = as.numeric(scale(value))) |> 
+    ungroup() |> 
+    select(codigo,año,variable,value) |> 
+    left_join(select(data_cor,codigo,cor_group)) |> 
+    suppressMessages()
+  
+  grupos <- sort(unique(data_cor$cor_group))
+  
+  p <- lapply(grupos,\(grupo) {
+    data_plot |>
+      filter(cor_group == grupo) |> 
+      ggplot(aes(año,value,color = variable)) +
+      geom_line(linewidth = 1.1, alpha = .6) +
+      facet_grid(rows = vars(codigo), cols = vars(cor_group), switch = 'y') +
+      labs(y = NULL,x = NULL) +
+      scale_x_continuous(expand = c(0,0.15), breaks = seq(2000,2024,by=4), minor_breaks = 2000:2024) +
+      theme_bw() +
+      theme(strip.background = element_rect(fill = 'white'))
+  })
+  
+  p <- (p[[1]] + p[[2]] + p[[3]]) / (p[[4]] + p[[5]] + p[[6]]) + 
+    plot_layout(guides = "collect")  & 
+    theme(legend.position = "bottom")
+  
+  if (!is.null(output)) {
+    dir_path <- dirname(output)
+    if (!dir.exists(dir_path)) {
+      stop("La carpeta especificada en 'output' no existe: ", dir_path)
+    }
+    ggsave(filename = output, plot = p, width = width, height = height)
+  }
+  
+  return(p)
+}
+plot_ts_2 <- \(data,method, output = NULL, width = 12, height = 6) {
+  data_cor <- read_rds(paste0('data/processed/rds/water_balance_correlation_',method,'.rds')) |> 
+    filter(comparison == 'WS_SM_acum vs GWD_mean') |>
+    mutate(cor_group = factor(cut(r,
+                                  breaks = c(-1, -0.8, -0.6, -0.4, -0.2, 0, Inf),
+                                  labels = c("-0.8 ≥ r ≥ -1", "-0.6 > r ≥ -0.8", "-0.4 > r ≥ -0.6",
+                                             "-0.2 > r ≥ -0.4", "0 > r ≥ -0.2", "r > 0"),
+                                  right = TRUE, include.lowest = TRUE),
+                              levels = c("-0.8 ≥ r ≥ -1", "-0.6 > r ≥ -0.8", "-0.4 > r ≥ -0.6",
+                                         "-0.2 > r ≥ -0.4", "0 > r ≥ -0.2", "r > 0")))
+  
+  data_plot <- data_anual |>
+    pivot_longer(cols=c('GWD_mean','WS_SM_acum'),
+                 values_to = 'value',names_to = 'variable') |>
+    group_by(codigo,variable) |>
+    mutate(value = as.numeric(scale(value))) |> 
+    ungroup() |> 
+    select(codigo,año,variable,value) |> 
+    left_join(select(data_cor,codigo,cor_group)) |> 
+    suppressMessages()
+  
+  p <- data_plot |> 
+    mutate(codigo = as.factor(codigo)) |> 
+    ggplot(aes(año,value,color = variable)) +
+    geom_line(aes(group = interaction(variable, codigo)),alpha = .3) +
+    geom_smooth(method = "loess", span = 0.5, linewidth = 1.25) +
+    facet_wrap(~cor_group) +
+    labs(y = 'scaled values',x = NULL) +
+    scale_x_continuous(expand = c(0,0.3), breaks = seq(2000,2024,by=4), minor_breaks = 2000:2024) +
+    theme_bw() +
+    theme(strip.background = element_rect(fill = 'white'))
+  
+  if (!is.null(output)) {
+    dir_path <- dirname(output)
+    if (!dir.exists(dir_path)) {
+      stop("La carpeta especificada en 'output' no existe: ", dir_path)
+    }
+    ggsave(filename = output, plot = p, width = width, height = height)
+  }
+  
+  return(p)
+}
+
+plot_ts_2(data_anual,'pearson','output/fig/correlation/pearson_ts.png')
+plot_ts_2(data_anual,'spearman','output/fig/correlation/spearman_ts.png')
+
+
+
+
+
 
 
