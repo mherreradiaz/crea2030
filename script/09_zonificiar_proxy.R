@@ -30,6 +30,8 @@ cluster_plot <- \(data,method = 'kmeans',clusters = 4,minPts = 5,data_original,r
                                                         minPts = minPts)$cluster))),
              .before = 2) |> 
       select(id,cluster)
+    
+    title = 'hdscan'
             
   } else {
     data_cluster <- data |> 
@@ -38,6 +40,8 @@ cluster_plot <- \(data,method = 'kmeans',clusters = 4,minPts = 5,data_original,r
                               levels = 1:clusters),
              .before = 2) |> 
       select(id,cluster)
+    
+    title = 'kmeans'
   }
 
   raster <- ifel(!is.na(r),NA,r)[[1]] |> 
@@ -89,7 +93,9 @@ cluster_plot <- \(data,method = 'kmeans',clusters = 4,minPts = 5,data_original,r
   
   p3 + p1 + p2 + 
     plot_layout(design = layout_custom,
-                guides = 'collect')
+                guides = 'collect') +
+    plot_annotation(title = title) &
+    theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
 
 }
   
