@@ -91,89 +91,63 @@ lapply(ndvi,\(ly)
 
 # preprocesar MOD12Q1
 
-files <- list.files('data/raw/raster/MOD12Q1/',full.names=T,pattern='.tif') |> 
+lc_files <- list.files('data/raw/raster/MOD12Q1/',full.names=T,pattern='.tif') |> 
   grep(pattern='Type1',value=T)
+qc_files <- list.files('data/raw/raster/MOD12Q1/',full.names=T,pattern='.tif') |> 
+  grep(pattern='QC',value=T)
 
-years <- str_extract(files,"(?<=doy)\\d{4}")
+years <- str_extract(lc_files,"(?<=doy)\\d{4}")
 
-r <- files |> 
+r_base <- list.files('data/processed/raster/MOD13Q1/',full.names=T,pattern='.tif')[1] |> 
   rast() |> 
-  project('EPSG:32719',method = 'near') |> 
-  setNames(years) |> 
-  subset(19)
+  setValues(NA)
 
-writeRaster(r,'data/processed/raster/cobertura/MOD12Q1.tif',
-            overwrite=T)
+qc_mask <- qc_files |> 
+  rast() |> 
+  (\(x) ifel(x %in% c(0,9), 1, NA))()
+
+lc <- lc_files |> 
+  rast() |> 
+  mask(qc_mask) |> 
+  project(r_base,method = 'near') |> 
+  setNames(years)
+
+dir.out <- 'data/processed/raster/MOD12Q1/'
+
+lapply(lc, \(ly) writeRaster(ly,glue('{dir.out}LC_{names(ly)}.tif'),
+                             overwrite=T))
 
 # validar LC con catastro CONAF
 
-mod12 <- rast('data/processed/raster/cobertura/MOD12Q1.tif')
-conaf <- vect('data/processed/vectorial/cobertura/forestal.shp')
+forestal <- rast('data/processed/raster/catastros/forestal.tif')
+modis_lc <- rast('data/processed/raster/MOD12Q1/LC_2019.tif')
 
-mod12_disag <- disagg(mod12,41)
-
-conaf_rast <- conaf |> 
-  rasterize(mod12_disag,field='CLASS',fun = sum)
-
-conaf_rast <- ifel(!(conaf_rast %in% unique(conaf$CLASS)),NA,conaf_rast)
-
-data <- c(conaf_rast,mod12_disag) |> 
-  setNames(c('CONAF','MODIS')) |> 
+data_matrix <- c(subset(forestal,'lvl_5'),subset(forestal,'lvl_4'),subset(forestal,'lvl_3'),
+          subset(forestal,'lvl_2'),subset(forestal,'lvl_1'),modis_lc) |> 
+  setNames(c(paste0('CONAF_',5:1),'MODIS')) |> 
   values() |> 
-  as_tibble()
-
-# omitir NA
-
-conf_matrix <- data |>
-  na.omit() |> 
-  group_by(CONAF, MODIS) |>
-  reframe(n = n()) |>
-  pivot_wider(
-    names_from   = MODIS,
-    values_from  = n,
-    values_fill  = 0
-  ) |>
-  tibble::column_to_rownames('CONAF')
-
-conf_matrix
-
-# considerar NA
-
-conf_matrix_na <- data |>
-  mutate(CONAF = ifelse(is.na(CONAF),-999,CONAF),
+  as_tibble() |> 
+  filter(!if_all(everything(), is.na)) |> 
+  mutate(CONAF = ifelse(is.na(CONAF_2),-999,CONAF_2),
          MODIS = ifelse(is.na(MODIS),-999,MODIS)) |> 
   group_by(CONAF,MODIS) |>
   reframe(n = n()) |>
-  pivot_wider(
-    names_from   = MODIS,
-    values_from  = n,
-    values_fill  = 0
-  ) |>
-  tibble::column_to_rownames('CONAF')
+  pivot_wider(names_from   = MODIS,
+              values_from  = n,
+              values_fill  = 0)
 
-conf_matrix_na
-
-#
-
-data_cont <- conf_matrix_na |> 
-  select(-1) |>
-  mutate(conaf = row.names(conf_matrix_na),
-         .before = `1`,
-         conaf = ifelse(conaf == -999,"no_data",conaf)) |> 
+data_contingencia <- data_matrix |> 
+  select(-'-999') |>
+  mutate(CONAF = ifelse(CONAF == -999,"no_data",CONAF)) |> 
   pivot_longer(cols = `1`:`10`,names_to = 'MODIS',values_to = 'n') |> 
-  select(MODIS,conaf,n) |> 
+  select(MODIS,CONAF,n) |> 
   arrange(MODIS) |> 
   mutate(MODIS = as.factor(MODIS),
-         conaf = as.factor(conaf))
+         CONAF = as.factor(CONAF))
 
-write_rds(data_cont,'data/processed/rds/data_contingencia_modis_conaf.rds')
+write_rds(data_contingencia,'data/processed/rds/data_contingencia_modis_conaf.rds')
 
-#
-
-cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
-
-conaf <- vect('data/raw/vectorial/catastro_forestal.shp') |> 
-  crop(cuenca)
+#visualizar
 
 data <- read_rds('data/processed/rds/data_contingencia_modis_conaf.rds') |> 
   mutate(MODIS = as.numeric(as.character(MODIS))) |> 
@@ -193,24 +167,22 @@ data <- read_rds('data/processed/rds/data_contingencia_modis_conaf.rds') |>
                                    "Sabana",
                                    "Pastizales")))
 
-data_cont <- data |> 
+data_porcentaje <- data |> 
   group_by(MODIS) |> 
   mutate(pred = n/sum(n))
 
-data_px <- data_cont |> 
+data_px <- data_porcentaje |> 
   reframe(sum = sum(n))
 
-data_cont |> 
+data_porcentaje |> 
+  filter(pred != 0) |> 
   slice_max(n, n = 4) |> 
-  ggplot(aes(conaf,pred)) +
+  ggplot(aes(CONAF,pred)) +
   geom_col() +
-  geom_text(data = data_px, aes(x = -Inf, y = .7, label = sum), hjust = -.1) +
+  geom_text(data = data_px, aes(x = -Inf, y = .75, label = sum), hjust = -.1) +
   facet_wrap(~MODIS,ncol = 3, scales = 'free_x') +
   scale_y_continuous(limits = c(0,.8), expand = c(0,0)) +
   theme_bw() +
   theme(strip.background = element_rect(fill='white'))
 
-
-
-
-colMeans(conf_matrix_na)
+ggsave('output/fig/contingencia_modis_conaf/lvl_2.png', height = 7, width = 10)

@@ -12,7 +12,7 @@ modal_per <- function(x) {
     t = table(x)
     n <- max(t)
     prop <- n/l
-    if (prop >= .7) as.numeric(names(t)[which.max(t)]) else NA
+    if (prop >= 1) as.numeric(names(t)[which.max(t)]) else NA
   }
 }
 
@@ -95,7 +95,7 @@ c(r_lvl1,r_lvl2,r_lvl3,r_lvl4,r_lvl5) |>
 
 # procesar catastro fruticola
 
-v <- grep('fruticola',list.files('data/raw/vectorial',full.names=T,pattern = '.shp'),value=T)[3] |> 
+v <- grep('fruticola',list.files('data/raw/vectorial',full.names=T,pattern = '.shp'),value=T) |> 
   vect() |>
   filter(ESPECIE %in% c('PALTO','NOGAL','VID DE MESA','LIMONERO','MANDARINO')) |> 
   mutate(ESPECIE = factor(ESPECIE, levels = c('PALTO','NOGAL','VID DE MESA','LIMONERO','MANDARINO')),
@@ -126,5 +126,5 @@ r_lvl1 <- v |>
 ifel(!(r_lvl1 %in% unique(v$CLASS)),NA,r_lvl1) |> 
   aggregate(20, fun = modal_per,cores = 10) |> 
   setNames('lvl_1') |> 
-  writeRaster('data/processed/raster/cobertura/fruticola.tif',
+  writeRaster('data/processed/raster/catastros/fruticola.tif',
               overwrite=T)
