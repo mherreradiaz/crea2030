@@ -180,7 +180,7 @@ optimal_cluster <- data_tsfeatures |>
   which.max()
 
 cluster_plot(data_tsfeatures,method = 'kmeans',optimal_cluster,data_original = data,r = r)
-cluster_plot(data_tsfeatures,method = 'kmeans',4,data_original = data,r = r)
+cluster_plot(data_tsfeatures,method = 'kmeans',2,data_original = data,r = r)
 cluster_plot(data_tsfeatures,method = 'hdbscan',minPts = 10,data_original = data,r = r)
 
 # ts estandarizada
@@ -228,7 +228,7 @@ optimal_cluster <- data_raw |>
 
 cluster_plot(data_raw,method = 'kmeans',optimal_cluster,data_original = data,r = r)
 cluster_plot(data_raw,method = 'kmeans',4,data_original = data,r = r)
-cluster_plot(data_raw,method = 'hdbscan',minPts = 10,data_original = data,r = r)
+cluster_plot(data_raw,method = 'hdbscan',minPts = 7,data_original = data,r = r)
 
 
 

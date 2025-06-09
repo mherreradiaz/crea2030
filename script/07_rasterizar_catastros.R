@@ -46,12 +46,11 @@ v <- vect('data/processed/vectorial/cobertura/forestal.shp')
   
 v |> values() |> distinct() |> write_csv('data/processed/misc/clases.csv')
 
-r <- list.files('data/raw/raster/MOD12Q2',full.names=T,pattern = '.tif')[1] |>
+r <- list.files('data/processed/raster/MOD13Q1',full.names=T,pattern = '.tif')[1] |>
   rast() |> 
-  setValues(NA) |> 
-  project('EPSG:32719')
+  setValues(NA)
 
-r_disagg <- disagg(r, fact = 41)
+r_disagg <- disagg(r, fact = 20)
 
 r_lvl1 <- v |> 
   select(LVL_1) |> 
@@ -79,15 +78,15 @@ r_lvl5 <- v |>
   rasterize(r_disagg,field='LVL_5',fun = sum)
  
 r_lvl1 <- ifel(!(r_lvl1 %in% unique(v$LVL_1)),NA,r_lvl1) |> 
-  aggregate(41, fun = modal_per,cores = 10)
+  aggregate(20, fun = modal_per,cores = 10)
 r_lvl2 <- ifel(!(r_lvl2 %in% unique(v$LVL_2)),NA,r_lvl2) |> 
-  aggregate(41, fun = modal_per,cores = 10)
+  aggregate(20, fun = modal_per,cores = 10)
 r_lvl3 <- ifel(!(r_lvl3 %in% unique(v$LVL_3)),NA,r_lvl3) |> 
-  aggregate(41, fun = modal_per,cores = 10)
+  aggregate(20, fun = modal_per,cores = 10)
 r_lvl4 <- ifel(!(r_lvl4 %in% unique(v$LVL_4)),NA,r_lvl4) |> 
-  aggregate(41, fun = modal_per,cores = 10)
+  aggregate(20, fun = modal_per,cores = 10)
 r_lvl5 <- ifel(!(r_lvl5 %in% unique(v$LVL_5)),NA,r_lvl5) |> 
-  aggregate(41, fun = modal_per,cores = 10)
+  aggregate(20, fun = modal_per,cores = 10)
 
 c(r_lvl1,r_lvl2,r_lvl3,r_lvl4,r_lvl5) |> 
   setNames(paste0('lvl_',1:5)) |> 
@@ -115,18 +114,17 @@ v |>
 
 v <- vect('data/processed/vectorial/cobertura/fruticola.shp')
 
-r <- list.files('data/raw/raster/MOD12Q2',full.names=T,pattern = '.tif')[1] |>
+r <- list.files('data/processed/raster/MOD13Q1',full.names=T,pattern = '.tif')[1] |>
   rast() |> 
-  setValues(NA) |> 
-  project('EPSG:32719')
+  setValues(NA)
 
-r_disagg <- disagg(r, fact = 41)
+r_disagg <- disagg(r, fact = 20)
 
 r_lvl1 <- v |> 
   rasterize(r_disagg,field='CLASS',fun = sum)
 
 ifel(!(r_lvl1 %in% unique(v$CLASS)),NA,r_lvl1) |> 
-  aggregate(41, fun = modal_per,cores = 10) |> 
+  aggregate(20, fun = modal_per,cores = 10) |> 
   setNames('lvl_1') |> 
   writeRaster('data/processed/raster/cobertura/fruticola.tif',
               overwrite=T)
