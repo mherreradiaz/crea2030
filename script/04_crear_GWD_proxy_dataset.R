@@ -104,7 +104,7 @@ data_mes <- left_join(data_TC,data_SPI) |>
 
 write_rds(data_mes,'data/processed/rds/GWD_proxy_mes.rds')
 
-data_anual <- data_mes |> 
+data_año <- data_mes |> 
   group_by(codigo,año = year(fecha)) |>
   reframe(
     # GWD
@@ -132,5 +132,5 @@ data_anual <- data_mes |>
   )|>
   filter(between(año,2000,2021))
 
-write_rds(data_anual,'data/processed/rds/GWD_proxy_año.rds')
+write_rds(data_año,'data/processed/rds/GWD_proxy_año.rds')
 

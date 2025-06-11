@@ -4,128 +4,62 @@ library(terra)
 library(RColorBrewer)
 library(patchwork)
 
-cleanInf <- \(x) ifelse(is.infinite(x),NA,x)
-cleanNA <- \(x) x[which(!is.na(x))]
-consMean <- \(x,consistency = 1) ifelse(length(cleanNA(x))/length(x) >= consistency,mean(x,na.rm=T),NA)
+cor_matrix <- \(df, x_cols, y_cols, method) {
+  
+  combs <- expand.grid(x = x_cols, y = y_cols, stringsAsFactors = FALSE)
+  
+  map_dfr(1:nrow(combs), function(i) {
+    x <- df[[combs$x[i]]]
+    y <- df[[combs$y[i]]]
+    test <- cor.test(x, y, use = "pairwise.complete.obs", method = method)
+    tibble(
+      X_metric = combs$x[i],
+      Y_metric = combs$y[i],
+      r = test$estimate,
+      p_value = test$p.value
+    )
+  }) |> 
+    unite("comparison", X_metric, Y_metric, sep = " vs ") |> 
+    ungroup()
+}
 
-# calcular métricas anuales
-
-data_mes <- read_rds('data/processed/rds/GWD_proxy_SPI.rds') |>
+data_mes <- read_rds('data/processed/rds/GWD_proxy_mes.rds') |>
   filter(between(year(fecha),2000,2021))
-
-data_anual <- data_mes |> 
-  group_by(codigo, año = year(fecha)) |> 
-  reframe(SPI_mean = consMean(SPI,8/12),
-          SPI_lag3_mean = consMean(SPI_lag3,8/12),
-          SPI_lag6_mean = consMean(SPI_lag6,8/12),
-          SPI_lag12_mean = consMean(SPI_lag12,8/12),
-          GWD_mean   = consMean(GWD, .5),
-          GWD_delta  = mean(tail(GWD, 3), na.rm = TRUE) - mean(head(GWD, 3), na.rm = TRUE))
-
-write_rds(data_anual,'data/processed/rds/GWD_proxy_SPI_anual.rds')
+data_año <- read_rds('data/processed/rds/GWD_proxy_año.rds')
 
 # correlacion mensual
 
-data_mes <- read_rds('data/processed/rds/GWD_proxy_SPI.rds') |>
-  filter(between(year(fecha),2000,2021))
+x_cols = grep('GWD',names(data_mes),value = T)
+y_cols = grep('WS|SPI',names(data_mes),value = T)
 
-gwd_cols <- grep('GWD',names(data_mes),value = T)
-spi_cols <- grep('SPI',names(data_mes),value = T)
-combs <- expand.grid(gwd = gwd_cols, spi = spi_cols, stringsAsFactors = FALSE)
-
-data_pearson <- data_mes |> # pearson
+data_mes |> 
   group_by(codigo) |>
-  group_modify(~{
-    df <- .x
-    map_dfr(1:nrow(combs), function(i) {
-      x <- df[[combs$gwd[i]]]
-      y <- df[[combs$spi[i]]]
-      test <- cor.test(x, y, use = "pairwise.complete.obs")
-      tibble(
-        GWD_metric = combs$gwd[i],
-        SPI_metric = combs$spi[i],
-        r = test$estimate,
-        p_value = test$p.value
-      )
-    })
-  }) |>
-  unite("comparison", GWD_metric, SPI_metric, sep = " vs ") |> 
-  ungroup()
+  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'pearson')) |> 
+  write_rds('data/processed/rds/correlacion_GWD_proxy_mes_pearson.rds')
 
-data_spearman <- data_mes |> # spearman
-  group_by(codigo) |>
-  group_modify(~{
-    df <- .x
-    map_dfr(1:nrow(combs), function(i) {
-      x <- df[[combs$gwd[i]]]
-      y <- df[[combs$spi[i]]]
-      test <- cor.test(x, y, use = "pairwise.complete.obs", method = 'spearman')
-      tibble(
-        GWD_metric = combs$gwd[i],
-        SPI_metric = combs$spi[i],
-        r = test$estimate,
-        p_value = test$p.value
-      )
-    })
-  }) |>
-  unite("comparison", GWD_metric, SPI_metric, sep = " vs ") |> 
-  ungroup()
-
-write_rds(data_pearson,'data/processed/rds/GWD_proxy_SPI_mes_correlation_pearson.rds')
-write_rds(data_spearman,'data/processed/rds/GWD_proxy_SPI_mes_correlation_spearman.rds')
+data_mes |> 
+  group_by(codigo) |> 
+  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'spearman')) |> 
+  write_rds('data/processed/rds/correlacion_GWD_proxy_mes_spearman.rds.rds')
 
 # correlacion anual
 
-data_anual <- read_rds('data/processed/rds/GWD_proxy_SPI_anual.rds')
+x_cols = grep('GWD',names(data_año),value = T)
+y_cols = grep('WS|SPI',names(data_año),value = T)
 
-gwd_cols <- grep('GWD',names(data_anual),value = T)
-spi_cols <- grep('SPI',names(data_anual),value = T)
-combs <- expand.grid(gwd = gwd_cols, spi = spi_cols, stringsAsFactors = FALSE)
-
-data_pearson <- data_anual |> # pearson
+data_año |> 
   group_by(codigo) |>
-  group_modify(~{
-    df <- .x
-    map_dfr(1:nrow(combs), function(i) {
-      x <- df[[combs$gwd[i]]]
-      y <- df[[combs$spi[i]]]
-      test <- cor.test(x, y, use = "pairwise.complete.obs")
-      tibble(
-        GWD_metric = combs$gwd[i],
-        SPI_metric = combs$spi[i],
-        r = test$estimate,
-        p_value = test$p.value
-      )
-    })
-  }) |>
-  unite("comparison", GWD_metric, SPI_metric, sep = " vs ") |> 
-  ungroup()
+  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'pearson')) |> 
+  write_rds('data/processed/rds/correlacion_GWD_proxy_año_pearson.rds')
 
-data_spearman <- data_anual |> # spearman
-  group_by(codigo) |>
-  group_modify(~{
-    df <- .x
-    map_dfr(1:nrow(combs), function(i) {
-      x <- df[[combs$gwd[i]]]
-      y <- df[[combs$spi[i]]]
-      test <- cor.test(x, y, use = "pairwise.complete.obs", method = 'spearman')
-      tibble(
-        GWD_metric = combs$gwd[i],
-        SPI_metric = combs$spi[i],
-        r = test$estimate,
-        p_value = test$p.value
-      )
-    })
-  }) |>
-  unite("comparison", GWD_metric, SPI_metric, sep = " vs ") |> 
-  ungroup()
-
-write_rds(data_pearson,'data/processed/rds/GWD_proxy_SPI_anual_correlation_pearson.rds')
-write_rds(data_spearman,'data/processed/rds/GWD_proxy_SPI_anual_correlation_spearman.rds')
+data_año |> 
+  group_by(codigo) |> 
+  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'spearman')) |> 
+  write_rds('data/processed/rds/correlacion_GWD_proxy_año_spearman.rds.rds')
 
 # visualizar pearson mensual
 
-data_pearson <- read_rds('data/processed/rds/GWD_proxy_SPI_mes_correlation_pearson.rds')
+data_pearson <- read_rds('data/processed/rds/correlacion_GWD_proxy_mes_pearson.rds')
 
 plot_cor <- function(data, comparisons_vector, output = NULL, width = 10, height = 6) {
   codigo_order <- data |> 
@@ -168,8 +102,20 @@ cor_frequency <- data_pearson |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-plot_cor(data_pearson,rev(tail(pull(cor_frequency,comparison),4)),
-         output = 'output/fig/correlation_SPI/matrix_mes_pearson.png')
+data_pearson |> 
+  pull(comparison) |> 
+  unique()
+
+plot_cor(data_pearson,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
+         output = 'output/fig/correlation/matrix_mes_pearson_all.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS','WS_lag3','WS_lag6','WS_lag12')),
+         output = 'output/fig/correlation/matrix_mes_pearson_WS_lag.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM','WS_SM_lag3','WS_SM_lag6','WS_SM_lag12')),
+         output = 'output/fig/correlation/matrix_mes_pearson_WS_SM_lag.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
+         output = 'output/fig/correlation/matrix_mes_pearson_WS_acum.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
+         output = 'output/fig/correlation/matrix_mes_pearson_WS_SM_acum.png')
 
 # visualizar spearman mensual
 
