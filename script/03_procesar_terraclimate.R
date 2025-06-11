@@ -2,7 +2,7 @@ library(tidyverse)
 library(terra)
 library(glue)
 
-# procesar variables
+# preprocesar variables
 
 cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
 
