@@ -22,6 +22,36 @@ cor_matrix <- \(df, x_cols, y_cols, method) {
     unite("comparison", X_metric, Y_metric, sep = " vs ") |> 
     ungroup()
 }
+plot_cor <- function(data, comparisons_vector, output = NULL, width = 10, height = 6) {
+  codigo_order <- data |> 
+    filter(comparison %in% comparisons_vector) |>
+    group_by(codigo) |> 
+    reframe(cor_mean = mean(abs(r))) |> 
+    arrange(desc(cor_mean)) |> 
+    pull(codigo)
+  
+  p <- data |> 
+    filter(comparison %in% comparisons_vector) |>
+    mutate(codigo    = factor(codigo, levels = codigo_order),
+           comparison = factor(comparison, levels = comparisons_vector),
+           label = paste0(round(r,2),ifelse(p_value < .05,'**',''))) |> 
+    ggplot(aes(comparison, y = codigo, fill = r)) +
+    geom_tile() +
+    geom_text(aes(label = label), size = 3, color = 'grey20') +
+    scale_fill_distiller(palette = "RdBu", direction = 1, limits = c(-1, 1), name = "r") +
+    scale_x_discrete(expand = c(0,0)) +
+    scale_y_discrete(expand = c(0,0)) +
+    labs(x = NULL, y = "well") +
+    theme_bw() +
+    theme(strip.background = element_rect(fill = 'white'))
+  
+  if (!is.null(output)) {
+    dir_path <- dirname(output)
+    ggsave(filename = output, plot = p, width = width, height = height)
+  }
+  
+  return(p)
+}
 
 data_mes <- read_rds('data/processed/rds/GWD_proxy_mes.rds') |>
   filter(between(year(fecha),2000,2021))
@@ -61,37 +91,6 @@ data_año |>
 
 data_pearson <- read_rds('data/processed/rds/correlacion_GWD_proxy_mes_pearson.rds')
 
-plot_cor <- function(data, comparisons_vector, output = NULL, width = 10, height = 6) {
-  codigo_order <- data |> 
-    filter(comparison %in% comparisons_vector) |>
-    group_by(codigo) |> 
-    reframe(cor_mean = mean(abs(r))) |> 
-    arrange(desc(cor_mean)) |> 
-    pull(codigo)
-  
-  p <- data |> 
-    filter(comparison %in% comparisons_vector) |>
-    mutate(codigo    = factor(codigo, levels = codigo_order),
-           comparison = factor(comparison, levels = comparisons_vector),
-           label = paste0(round(r,2),ifelse(p_value < .05,'**',''))) |> 
-    ggplot(aes(comparison, y = codigo, fill = r)) +
-    geom_tile() +
-    geom_text(aes(label = label), size = 3, color = 'grey20') +
-    scale_fill_distiller(palette = "RdBu", direction = 1, limits = c(-1, 1), name = "r") +
-    scale_x_discrete(expand = c(0,0)) +
-    scale_y_discrete(expand = c(0,0)) +
-    labs(x = NULL, y = "well") +
-    theme_bw() +
-    theme(strip.background = element_rect(fill = 'white'))
-  
-  if (!is.null(output)) {
-    dir_path <- dirname(output)
-    ggsave(filename = output, plot = p, width = width, height = height)
-  }
-  
-  return(p)
-}
-
 cor_frequency <- data_pearson |>
   group_by(codigo, comparison) |>
   reframe(abs_r = abs(r)) |>
@@ -102,24 +101,24 @@ cor_frequency <- data_pearson |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-data_pearson |> 
-  pull(comparison) |> 
-  unique()
+# data_pearson |> 
+#   pull(comparison) |> 
+#   unique()
 
 plot_cor(data_pearson,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
-         output = 'output/fig/correlation/matrix_mes_pearson_all.png')
+         output = 'output/fig/correlation/pearson/mes/matrix_mes_pearson_all.png')
 plot_cor(data_pearson,paste0('GWD vs ',c('WS','WS_lag3','WS_lag6','WS_lag12')),
-         output = 'output/fig/correlation/matrix_mes_pearson_WS_lag.png')
+         output = 'output/fig/correlation/pearson/mes/matrix_mes_pearson_WS_lag.png')
 plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM','WS_SM_lag3','WS_SM_lag6','WS_SM_lag12')),
-         output = 'output/fig/correlation/matrix_mes_pearson_WS_SM_lag.png')
+         output = 'output/fig/correlation/pearson/mes/matrix_mes_pearson_WS_SM_lag.png')
 plot_cor(data_pearson,paste0('GWD vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
-         output = 'output/fig/correlation/matrix_mes_pearson_WS_acum.png')
+         output = 'output/fig/correlation/pearson/mes/matrix_mes_pearson_WS_acum.png')
 plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
-         output = 'output/fig/correlation/matrix_mes_pearson_WS_SM_acum.png')
+         output = 'output/fig/correlation/pearson/mes/matrix_mes_pearson_WS_SM_acum.png')
 
 # visualizar spearman mensual
 
-data_spearman <- read_rds('data/processed/rds/GWD_proxy_SPI_mes_correlation_spearman.rds')
+data_spearman <- read_rds('data/processed/rds/correlacion_GWD_proxy_mes_spearman.rds.rds')
 
 cor_frequency <- data_spearman |>
   group_by(codigo, comparison) |>
@@ -131,12 +130,24 @@ cor_frequency <- data_spearman |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-plot_cor(data_spearman,rev(tail(pull(cor_frequency,comparison),4)),
-         output = 'output/fig/correlation_SPI/matrix_mes_spearman.png')
+# data_pearson |> 
+#   pull(comparison) |> 
+#   unique()
 
-# visualizar pearson anual
+plot_cor(data_spearman,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
+         output = 'output/fig/correlation/spearman/mes/matrix_mes_spearman_all.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS','WS_lag3','WS_lag6','WS_lag12')),
+         output = 'output/fig/correlation/spearman/mes/matrix_mes_spearman_WS_lag.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS_SM','WS_SM_lag3','WS_SM_lag6','WS_SM_lag12')),
+         output = 'output/fig/correlation/spearman/mes/matrix_mes_spearman_WS_SM_lag.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
+         output = 'output/fig/correlation/spearman/mes/matrix_mes_spearman_WS_acum.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
+         output = 'output/fig/correlation/spearman/mes/matrix_mes_spearman_WS_SM_acum.png')
 
-data_pearson <- read_rds('data/processed/rds/GWD_proxy_SPI_anual_correlation_pearson.rds')
+# visualizar pearson año
+
+data_pearson <- read_rds('data/processed/rds/correlacion_GWD_proxy_año_pearson.rds')
 
 cor_frequency <- data_pearson |>
   group_by(codigo, comparison) |>
@@ -148,18 +159,24 @@ cor_frequency <- data_pearson |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-plot_cor(data_pearson,rev(tail(pull(cor_frequency,comparison),4)),
-         output = 'output/fig/correlation_SPI/matrix_anual_4th_pearson.png')
-plot_cor(data_pearson,c('GWD_mean vs SPI_mean','GWD_mean vs SPI_lag3_mean',
-                        'GWD_mean vs SPI_lag6_mean','GWD_mean vs SPI_lag12_mean'),
-         output = 'output/fig/correlation_SPI/matrix_anual_mean_pearson.png')
-plot_cor(data_pearson,c('GWD_delta vs SPI_mean','GWD_delta vs SPI_lag3_mean',
-                        'GWD_delta vs SPI_lag6_mean','GWD_delta vs SPI_lag12_mean'),
-         output = 'output/fig/correlation_SPI/matrix_anual_delta_pearson.png')
+data_pearson |>
+  pull(comparison) |>
+  unique()
 
-# visualizar spearman anual
+plot_cor(data_pearson,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
+         output = 'output/fig/correlation/pearson/año/matrix_año_pearson_all.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS','WS_lag3','WS_lag6','WS_lag12')),
+         output = 'output/fig/correlation/pearson/año/matrix_año_pearson_WS_lag.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM','WS_SM_lag3','WS_SM_lag6','WS_SM_lag12')),
+         output = 'output/fig/correlation/pearson/año/matrix_año_pearson_WS_SM_lag.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
+         output = 'output/fig/correlation/pearson/año/matrix_año_pearson_WS_acum.png')
+plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
+         output = 'output/fig/correlation/pearson/año/matrix_año_pearson_WS_SM_acum.png')
 
-data_spearman <- read_rds('data/processed/rds/GWD_proxy_SPI_anual_correlation_spearman.rds')
+# visualizar spearman mensual
+
+data_spearman <- read_rds('data/processed/rds/correlacion_GWD_proxy_año_spearman.rds.rds')
 
 cor_frequency <- data_spearman |>
   group_by(codigo, comparison) |>
@@ -171,14 +188,20 @@ cor_frequency <- data_spearman |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-plot_cor(data_spearman,rev(tail(pull(cor_frequency,comparison),4)),
-         output = 'output/fig/correlation_SPI/matrix_anual_4th_spearman.png')
-plot_cor(data_spearman,c('GWD_mean vs SPI_mean','GWD_mean vs SPI_lag3_mean',
-                        'GWD_mean vs SPI_lag6_mean','GWD_mean vs SPI_lag12_mean'),
-         output = 'output/fig/correlation_SPI/matrix_anual_mean_spearman.png')
-plot_cor(data_spearman,c('GWD_delta vs SPI_mean','GWD_delta vs SPI_lag3_mean',
-                        'GWD_delta vs SPI_lag6_mean','GWD_delta vs SPI_lag12_mean'),
-         output = 'output/fig/correlation_SPI/matrix_anual_delta_spearman.png')
+# data_pearson |> 
+#   pull(comparison) |> 
+#   unique()
+
+plot_cor(data_spearman,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
+         output = 'output/fig/correlation/spearman/año/matrix_año_spearman_all.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS','WS_lag3','WS_lag6','WS_lag12')),
+         output = 'output/fig/correlation/spearman/año/matrix_año_spearman_WS_lag.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS_SM','WS_SM_lag3','WS_SM_lag6','WS_SM_lag12')),
+         output = 'output/fig/correlation/spearman/año/matrix_año_spearman_WS_SM_lag.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
+         output = 'output/fig/correlation/spearman/año/matrix_año_spearman_WS_acum.png')
+plot_cor(data_spearman,paste0('GWD vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
+         output = 'output/fig/correlation/spearman/año/matrix_año_spearman_WS_SM_acum.png')
 
 # visualizar series mensuales
 
