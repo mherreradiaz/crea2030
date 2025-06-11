@@ -5,19 +5,20 @@ library(glue)
 # preprocesar SPI
 
 spi_files <- list.files('data/raw/raster/SPI/',full.names = T)
-
-fechas <- str_extract()
-
 cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
+
+fechas <- str_extract(spi_files, "\\d{4}-\\d{2}-\\d{2}")
 
 spi <- rast(spi_files) |> 
   project('EPSG:32719') |> 
   crop(cuenca) |> 
-  setNames(fechas)
+  setNames(fechas) |> 
+  subset(which(fechas >= '2000-01-01'))
 
 dir.out <- 'data/processed/raster/SPI/'
 
-lapply(spi,\(ly) writeRaster(ly,glue('{dir.out}SPI_{names(ly)}.tif')))
+lapply(spi,\(ly) writeRaster(ly,glue('{dir.out}SPI_{names(ly)}.tif'),
+                             overwrite=T))
 
 # extraer SPI
 
@@ -36,11 +37,12 @@ extract(spi_r,well) |>
   mutate(fecha = as.Date(paste0(fecha,'-01'))) |> 
   select(fecha,codigo,everything()) |> 
   left_join(well_depth) |> 
-  rename(spi = SPI_36, GWD = gw_depth) |>
+  rename(SPI = SPI_36, GWD = gw_depth) |>
   group_by(codigo) |> 
   mutate(SPI_lag3 = lag(SPI,3),
          SPI_lag6 = lag(SPI,6),
          SPI_lag12 = lag(SPI,12)) |> 
   ungroup() |> 
+  arrange(codigo,fecha) |> 
   write_rds('data/processed/rds/GWD_proxy_SPI.rds')
 
