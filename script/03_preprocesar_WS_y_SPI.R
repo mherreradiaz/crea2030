@@ -2,7 +2,7 @@ library(tidyverse)
 library(terra)
 library(glue)
 
-# preprocesar variables
+# preprocesar TerraClimate
 
 cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
 
@@ -54,64 +54,20 @@ lapply(ws_sm, \(ly) {
   writeRaster(ly,paste0(dir.out, glue('WS_SM_{substr(date,1,4)}-{substr(date,6,7)}.tif')), overwrite=T)
 })
 
-# extraer
+# preprocesar SPI
 
-well_depth <- read_rds('data/processed/rds/well_depth.rds')
-well <- vect('data/processed/vectorial/pozos.shp')
+spi_files <- list.files('data/raw/raster/SPI/',full.names = T)
+cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
 
-tc_var <- c('PPT','AET','Q','SOIL','WS','WS_SM')
+fechas <- str_extract(spi_files, "\\d{4}-\\d{2}-\\d{2}")
 
-data <- lapply(tc_var,\(var) {
-  
-  r <- list.files(glue('data/processed/raster/TerraClimate/{var}'),full.names=T) |> 
-    grep(pattern = '.aux',invert=T,value=T) |> 
-    rast()
-  
-  extract(r,well) |> 
-    mutate(codigo = well$codigo,
-           .before = ID) |> 
-    select(-ID) |> 
-    pivot_longer(c(everything(),-codigo), names_to = 'fecha',
-                 values_to = tolower(var)) |> 
-    mutate(fecha = as.Date(paste0(fecha,'-01'))) |> 
-    select(fecha,codigo,everything())
-  
-}) |> 
-  reduce(left_join) |> 
-  suppressMessages() |> 
-  left_join(well_depth)
+spi <- rast(spi_files) |> 
+  project('EPSG:32719') |> 
+  crop(cuenca) |> 
+  setNames(fechas) |> 
+  subset(which(fechas >= '2000-01-01'))
 
-data <- data |> 
-  mutate(delta_soil = soil-lag(soil,1),
-         .before=ws)
+dir.out <- 'data/processed/raster/SPI/'
 
-write_rds(data,'data/processed/rds/water_balance.rds')
-
-#
-data
-max(data$ws,na.rm=T)
-min(data$ws,na.rm=T)
-
-data |> 
-  filter(year(fecha) >= 2000,
-         codigo %in% pozos_estacionales) |> 
-  ggplot(aes(fecha,ws)) +
-  geom_line() +
-  facet_wrap(~codigo,ncol=2) +
-  labs(y = 'monthly water storage (mm)', x = NULL) +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = 'white'))
-
-data |> 
-  filter(!is.na(ws)) |> 
-  group_by(codigo) |> 
-  mutate(ws_accum = cumsum(ws)) |> 
-  filter(year(fecha) >= 2000,
-         codigo %in% pozos_estacionales) |> 
-  ggplot(aes(fecha,ws_accum)) +
-  geom_line() +
-  facet_wrap(~codigo,ncol=2) +
-  labs(y = 'monthly water storage accumulated (mm)', x = NULL) +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = 'white'))
-
+lapply(spi,\(ly) writeRaster(ly,glue('{dir.out}SPI_{names(ly)}.tif'),
+                             overwrite=T))

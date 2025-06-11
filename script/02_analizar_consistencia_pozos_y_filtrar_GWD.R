@@ -3,13 +3,13 @@ library(tidyverse)
 data <- read_rds('data/processed/rds/well_depth_aconcagua.rds') |> 
   filter(year(fecha) >= 2000)
 
-# consistency
+# analizar consistencia
 
 data_filter <- data |> 
   group_by(codigo,año = year(fecha)) |> 
-  reframe(head = sum(!is.na(head(gw_depth,3))), # valores !NA en los primeros tres meses (máximo 3)
-          tail = sum(!is.na(tail(gw_depth,3))), # valores !NA en los últimos tres meses (máximo 3)
-          total = sum(!is.na(gw_depth))) |>  # meses con valores !NA (máximo 12)
+  reframe(head = sum(!is.na(head(GWD,3))), # valores !NA en los primeros tres meses (máximo 3)
+          tail = sum(!is.na(tail(GWD,3))), # valores !NA en los últimos tres meses (máximo 3)
+          total = sum(!is.na(GWD))) |>  # meses con valores !NA (máximo 12)
   rowwise() |> 
   mutate(head_tail = sum(head >= 1 & tail >= 1)) |> # valores !NA entre primeros y últimos tres meses (en) 
   group_by(codigo) |>
@@ -33,6 +33,8 @@ pozos <- read_rds('data/processed/rds/pozos_aconcagua.rds') |>
   filter(codigo %in% codigos_seleccionados)
 
 write_rds(pozos, 'data/processed/rds/pozos.rds')
+
+# filtrar GWD y shp
 
 read_rds('data/processed/rds/well_depth_aconcagua.rds') |> 
   filter(codigo %in% codigos_seleccionados) |> 

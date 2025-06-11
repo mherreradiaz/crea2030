@@ -236,12 +236,7 @@ plot_cor(data_spearman,c('GWD_delta vs SPI_mean','GWD_delta vs SPI_lag3_mean',
 
 # visualizar series mensuales
 
-data_mes <- read_rds('data/processed/rds/GWD_proxy_SPI.rds') |>
-  filter(between(year(fecha),2000,2021))
-data_spearman <- read_rds('data/processed/rds/GWD_proxy_SPI_mes_correlation_pearson.rds')
-data_spearman <- read_rds('data/processed/rds/GWD_proxy_SPI_mes_correlation_spearman.rds')
-
-plot_ts <- \(data_ts,data_cor, output = NULL, width = 13, height = 6) {
+plot_ts <- \(data_ts,data_cor, output = NULL, width = 13, height = 7) {
   data_cor <- data_cor |> 
     filter(comparison %in% c('GWD vs SPI','GWD_mean vs SPI_mean')) |>
     mutate(cor_group = factor(cut(r,
@@ -264,11 +259,20 @@ plot_ts <- \(data_ts,data_cor, output = NULL, width = 13, height = 6) {
     left_join(select(data_cor,codigo,cor_group)) |> 
     suppressMessages()
   
+  data_n <- data_plot |> 
+    na.omit() |> 
+    distinct(codigo,cor_group) |> 
+    group_by(cor_group) |> 
+    reframe(n = n())
+  
   p <- data_plot |> 
-    # na.omit() |> 
+    na.omit() |>
     ggplot(aes(fecha,value,color=variable)) +
     geom_line(aes(group = interaction(variable, codigo)), alpha = .3) +
-    geom_smooth(method = "loess", span = 0.5, linewidth = 1.25) +
+    geom_smooth(method = "loess", span = 0.5, linewidth = 1) +
+    geom_text(data = data_n,
+              aes(x = as.Date("2000-01-01"), y = Inf, label = paste0("n°wells = ", n)),
+              hjust = -0.1, vjust = 1.1, inherit.aes = FALSE) +
     facet_wrap(~cor_group) +
     labs(y = 'saled values',x = NULL) +
     scale_x_date(
@@ -288,6 +292,11 @@ plot_ts <- \(data_ts,data_cor, output = NULL, width = 13, height = 6) {
   
   return(p)
 }
+
+data_mes <- read_rds('data/processed/rds/GWD_proxy_SPI.rds') |>
+  filter(between(year(fecha),2000,2021))
+data_pearson <- read_rds('data/processed/rds/GWD_proxy_SPI_mes_correlation_pearson.rds')
+data_spearman <- read_rds('data/processed/rds/GWD_proxy_SPI_mes_correlation_spearman.rds')
 
 plot_ts(data_mes,data_pearson,'output/fig/correlation_SPI/ts_mes_pearson.png')
 plot_ts(data_mes,data_spearman,'output/fig/correlation_SPI/ts_mes_spearman.png')
