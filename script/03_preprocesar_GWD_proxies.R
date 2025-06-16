@@ -2,6 +2,39 @@ library(tidyverse)
 library(terra)
 library(glue)
 
+exportRast <- \(r, output.dir, band.name, names = TRUE) {
+  require(terra)
+  require(glue)
+  
+  if (!dir.exists(output.dir)) dir.create(output.dir, recursive = TRUE)
+  
+  if (!grepl("/$", output.dir)) output.dir <- glue("{output.dir}/")
+  
+  if (names != TRUE) {
+    if (length(names) != nlyr(r)) stop("El largo de 'names' no coincide con el número de layers.")
+    names(r) <- names
+  }
+  
+  file_names <- glue("{output.dir}{band.name}{names(r)}.tif")
+  
+  preview <- head(file_names, 10)
+  cat("Las capas se guardarán de la siguiente forma (10 primeras):\n")
+  cat(paste0(preview, collapse = "\n"), "\n")
+  
+  respuesta <- readline(prompt = "¿Desea proceder con la exportación? [s/n]: ")
+  if (tolower(respuesta) != "s") {
+    cat("Exportación cancelada.\n")
+    return(invisible(NULL))
+  }
+  
+  lapply(1:nlyr(r), \(i) {
+    ly <- r[[i]]
+    writeRaster(ly, file_names[i], overwrite = TRUE)
+  })
+  
+  cat("Exportación finalizada.\n")
+}
+
 # preprocesar TerraClimate
 
 cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
@@ -71,3 +104,7 @@ dir.out <- 'data/processed/raster/SPI/'
 
 lapply(spi,\(ly) writeRaster(ly,glue('{dir.out}SPI_{names(ly)}.tif'),
                              overwrite=T))
+
+# procesar GRACE
+
+grace_files <- list.files('data/raw/raster')

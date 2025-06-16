@@ -33,7 +33,6 @@ read_xlsx('data/raw/tabulada/gw_chile.xlsx') |>
 
 read_rds('data/processed/rds/pozos_chile.rds') |> 
   vect(geom = c("lon", "lat"), crs = "EPSG:4326") |> 
-  project('EPSG:32719') |> 
   mutate(codigo =as.integer(codigo)) |> 
   writeVector('data/processed/vectorial/pozos/pozos_chile.shp',overwrite=T)
 
@@ -43,7 +42,7 @@ data <- read_rds('data/processed/rds/GWD_chile.rds') |>
   filter(cuenca == 'RIO ACONCAGUA',
          year(fecha) >= 2000)
 
-# Consistencia pozos aconcagua
+# Consistencia pozos
 
 data_filter <- data |> 
   group_by(codigo,año = year(fecha)) |> 
@@ -72,7 +71,7 @@ codigos_seleccionados <- data_filter |>
 pozos <- read_rds('data/processed/rds/pozos_chile.rds') |> 
   filter(codigo %in% codigos_seleccionados)
 
-write_rds(pozos, 'data/processed/rds/pozos_aconcagua.rds')
+write_rds(pozos,'data/processed/rds/pozos_aconcagua.rds')
 
 # filtrar
 
