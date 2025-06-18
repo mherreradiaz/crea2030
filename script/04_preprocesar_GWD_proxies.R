@@ -35,7 +35,7 @@ exportRast <- \(r, output.dir, band.name, names = TRUE) {
   cat("Exportación finalizada.\n")
 }
 
-# preprocesar TerraClimate
+# TerraClimate ####
 
 cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
 
@@ -87,7 +87,7 @@ lapply(ws_sm, \(ly) {
   writeRaster(ly,paste0(dir.out, glue('WS_SM_{substr(date,1,4)}-{substr(date,6,7)}.tif')), overwrite=T)
 })
 
-# preprocesar SPI
+# SPI ####
 
 spi_files <- list.files('data/raw/raster/SPI/',full.names = T)
 cuenca <- vect('data/processed/vectorial/sitio/cuenca.shp')
@@ -105,6 +105,11 @@ dir.out <- 'data/processed/raster/SPI/'
 lapply(spi,\(ly) writeRaster(ly,glue('{dir.out}SPI_{names(ly)}.tif'),
                              overwrite=T))
 
-# procesar GRACE
+# GRACE ####
 
-grace_files <- list.files('data/raw/raster')
+grace_stack <- rast('data/raw/raster/GRACE/GRACE_LWE_2000_2024.tif')
+fechas <- gsub('_','-',str_extract(names(grace_stack), "\\d{4}_\\d{2}"))
+
+exportRast(grace_stack,'data/raw/raster/GRACE_input/GRACE/','GRACE_',names = fechas)
+
+
