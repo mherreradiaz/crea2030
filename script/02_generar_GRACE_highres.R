@@ -291,6 +291,17 @@ data_vip <- read_rds('data/processed/rds/GRACE_downscaling_VIP.rds')
 
 # métricas
 
+data_metrics |> 
+  reframe(mean_rsq = mean(rsq),
+          sd_rsq = sd(rsq),
+          mean_rmse = mean(rmse),
+          sd_rmse = sd(rmse),
+          mean_mae = mean(mae),
+          sd_mae = sd(mae),
+          trend_rsq = as.numeric(MannKendall(rsq)$tau),
+          trend_rmse = as.numeric(MannKendall(rmse)$tau),
+          trend_mae = as.numeric(MannKendall(mae)$tau))
+
 data_metrics |>
   rename(RSQ = rsq, RMSE = rmse,MAE = mae) |> 
   filter(fecha > '2002-11-01') |> 
@@ -325,7 +336,7 @@ data_stats |>
   geom_line() +
   theme_bw()
 
-data_stat <- data_stat |> 
+data_stat <- data_stats |> 
   select(fecha,variable,mean,sd) |> 
   group_by(variable) |> 
   mutate(mean = as.numeric(scale(mean)),

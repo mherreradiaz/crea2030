@@ -89,9 +89,16 @@ n_umbral <- data_raw |> # filtar el 75% con más datos y r significativos p-valu
   quantile(.25)
 
 data <- data_raw |> 
-  filter(p_value < 0.05,
-         n > n_umbral)
+  filter(n > n_umbral,
+         p_value < 0.05)
 
+data_raw |> 
+  filter(n > n_umbral,
+         p_value < 0.05) |> 
+  pull(codigo) |> 
+  unique() |> 
+  length()
+  
 data |>
   ggplot(aes(x = r)) +
   geom_histogram(binwidth = 0.2, boundary = 0, fill = 'steelblue', color = 'black',linewidth = .2) +
