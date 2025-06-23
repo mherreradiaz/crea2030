@@ -96,11 +96,17 @@ write_rds(data_SPI,'data/processed/rds/SPI.rds')
 
 data_TC <- read_rds('data/processed/rds/terraclimate.rds')
 data_SPI <- read_rds('data/processed/rds/SPI.rds')
+data_GRACE <- read_rds('data/processed/rds/GWD_GRACE_hr.rds') |> 
+  select(fecha,codigo,lwe)
 data_GWD <- read_rds('data/processed/rds/GWD_aconcagua.rds')
+
+data_GWD |> 
+  filter(codigo == 5422003)
 
 data_mes <- left_join(data_TC,data_SPI) |> 
   left_join(data_GWD) |> 
-  select(fecha,codigo,GWD,contains('WS'),contains('SPI'))
+  left_join(data_GRACE) |> 
+  select(fecha,codigo,GWD,lwe,contains('WS'),contains('SPI'))
 
 write_rds(data_mes,'data/processed/rds/GWD_proxy_mes.rds')
 
@@ -109,6 +115,8 @@ data_año <- data_mes |>
   reframe(
     # GWD
     GWD_mean   = consMean(GWD, .5),
+    # lwe
+    lwe_mean   = consMean(lwe,.5),
     # WS
     WS_sum          = sum(WS),
     WS_lag3_sum     = sum(WS_lag3),

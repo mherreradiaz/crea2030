@@ -5,22 +5,32 @@ library(RColorBrewer)
 library(patchwork)
 
 cor_matrix <- \(df, x_cols, y_cols, method) {
-  
   combs <- expand.grid(x = x_cols, y = y_cols, stringsAsFactors = FALSE)
   
-  map_dfr(1:nrow(combs), function(i) {
-    x <- df[[combs$x[i]]]
-    y <- df[[combs$y[i]]]
-    test <- cor.test(x, y, use = "pairwise.complete.obs", method = method)
+  map_dfr(seq_len(nrow(combs)), \(i) {
+    x_var   <- combs$x[i]
+    y_var   <- combs$y[i]
+    x_vals  <- df[[x_var]]
+    y_vals  <- df[[y_var]]
+    n_pairs <- sum(is.finite(x_vals) & is.finite(y_vals))
+    
+    if (n_pairs >= 2) {
+      test   <- cor.test(x_vals, y_vals,
+                         use    = 'pairwise.complete.obs',
+                         method = method)
+      r_val  <- unname(test$estimate)
+      p_val  <- test$p.value
+    } else {
+      r_val  <- NA
+      p_val  <- NA
+    }
+    
     tibble(
-      X_metric = combs$x[i],
-      Y_metric = combs$y[i],
-      r = test$estimate,
-      p_value = test$p.value
+      comparison = paste(x_var, y_var, sep = ' vs '),
+      r          = r_val,
+      p_value    = p_val
     )
-  }) |> 
-    unite("comparison", X_metric, Y_metric, sep = " vs ") |> 
-    ungroup()
+  })
 }
 plot_cor <- function(data, comparisons_vector, output = NULL, width = 10, height = 6) {
   codigo_order <- data |> 
@@ -120,13 +130,13 @@ data_año <- read_rds('data/processed/rds/GWD_proxy_año.rds')
 # correlacion mensual
 
 x_cols = grep('GWD',names(data_mes),value = T)
-y_cols = grep('WS|SPI',names(data_mes),value = T)
+y_cols = grep('lwe|WS|SPI',names(data_mes),value = T)
 
 data_mes |>
   group_by(codigo) |> 
   mutate(GWD = as.numeric(scale(GWD))) |> 
   ungroup() |> 
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'pearson')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
   mutate(r = round(r,2)) |> 
   arrange(desc(abs(r)))
 
@@ -134,20 +144,20 @@ data_mes |>
   group_by(codigo) |> 
   mutate(GWD = as.numeric(scale(GWD))) |> 
   ungroup() |> 
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'spearman')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |>
   mutate(r = round(r,2)) |> 
   arrange(desc(abs(r)))
 
 # correlacion anual
 
 x_cols = grep('GWD',names(data_año),value = T)
-y_cols = grep('WS|SPI',names(data_año),value = T)
+y_cols = grep('lwe|WS|SPI',names(data_año),value = T)
 
 data_año |> 
   group_by(codigo) |> 
   mutate(GWD_mean = as.numeric(scale(GWD_mean))) |> 
   ungroup() |> 
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'pearson')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
   mutate(r = round(r,2)) |> 
   arrange(desc(abs(r)))
 
@@ -155,41 +165,40 @@ data_año |>
   group_by(codigo) |> 
   mutate(GWD_mean = as.numeric(scale(GWD_mean))) |> 
   ungroup() |> 
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'spearman')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |>
   mutate(r = round(r,2)) |> 
   arrange(desc(abs(r)))
-
 
 # correlacion por pozo ####
 
 # correlacion mensual
 
 x_cols = grep('GWD',names(data_mes),value = T)
-y_cols = grep('WS|SPI',names(data_mes),value = T)
+y_cols = grep('lwe|WS|SPI',names(data_mes),value = T)
 
 data_mes |> 
   group_by(codigo) |>
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'pearson')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
   write_rds('data/processed/rds/correlacion_GWD_proxy_mes_pearson.rds')
 
 data_mes |> 
   group_by(codigo) |> 
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'spearman')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |> 
   write_rds('data/processed/rds/correlacion_GWD_proxy_mes_spearman.rds')
 
 # correlacion anual
 
 x_cols = grep('GWD',names(data_año),value = T)
-y_cols = grep('WS|SPI',names(data_año),value = T)
+y_cols = grep('lwe|WS|SPI',names(data_año),value = T)
 
 data_año |> 
   group_by(codigo) |>
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'pearson')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
   write_rds('data/processed/rds/correlacion_GWD_proxy_año_pearson.rds')
 
 data_año |> 
   group_by(codigo) |> 
-  group_modify(~ cor_matrix(.x, x_cols, y_cols,method = 'spearman')) |> 
+  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |> 
   write_rds('data/processed/rds/correlacion_GWD_proxy_año_spearman.rds')
 
 # visualizar pearson mensual
@@ -212,7 +221,7 @@ cor_frequency <- data_pearson |>
 
 plot_cor(data_pearson,rev(tail(cor_frequency$comparison,4)),
          output = 'output/fig/correlation/summary/matrix_mes_4th_pearson.png')
-plot_cor(data_pearson,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
+plot_cor(data_pearson,paste0('GWD vs ',c('SPI','lwe','WS','WS_acum','WS_SM','WS_SM_acum')),
          output = 'output/fig/correlation/summary/matrix_mes_all_pearson.png')
 
 plot_cor(data_pearson,rev(tail(cor_frequency$comparison,4)),

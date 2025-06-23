@@ -15,7 +15,7 @@ exportRast <- \(r, output.dir, band.name, names = NULL) {
   if (!grepl('/$', output.dir)) output.dir <- glue('{output.dir}/')
   
   if (!is.null(names)) {
-    if (length(names) != nlyr(r)) stop('El largo de 'names' no coincide con el número de layers.')
+    if (length(names) != nlyr(r)) stop("El largo de 'names' no coincide con el número de layers.")
     names(r) <- names
   }
   

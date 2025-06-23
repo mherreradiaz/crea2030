@@ -85,6 +85,12 @@ vect('data/processed/vectorial/pozos/pozos_chile.shp') |>
 
 # fill data (no aplicado)
 
+
+read_rds('data/processed/rds/GWD_chile.rds') |> 
+  filter(codigo %in% codigos_seleccionados) |>
+  filter(codigo == 5422003) |> 
+  View()
+
 library(zoo)
 
 na.str <- \(x) as.numeric(na.omit(x))
