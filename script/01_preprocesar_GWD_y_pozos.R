@@ -41,7 +41,8 @@ read_rds('data/processed/rds/pozos_chile.rds') |>
 
 data <- read_rds('data/processed/rds/GWD_chile.rds') |> 
   filter(cuenca == 'RIO ACONCAGUA',
-         year(fecha) >= 2000)
+         year(fecha) >= 2000) |> 
+  select(-cuenca)
 
 # Consistencia pozos
 
@@ -89,7 +90,8 @@ write_rds(pozos,'data/processed/rds/pozos_aconcagua.rds')
 # filtrar
 
 read_rds('data/processed/rds/GWD_chile.rds') |> 
-  filter(codigo %in% codigos_seleccionados) |> 
+  filter(codigo %in% codigos_seleccionados) |>
+  select(-cuenca) |> 
   write_rds('data/processed/rds/GWD_aconcagua.rds')
 
 vect('data/processed/vectorial/pozos/pozos_chile.shp') |>

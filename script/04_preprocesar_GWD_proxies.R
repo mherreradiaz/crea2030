@@ -7,32 +7,36 @@ exportRast <- \(r, output.dir, band.name, names = TRUE) {
   require(glue)
   
   if (!dir.exists(output.dir)) dir.create(output.dir, recursive = TRUE)
+  if (!grepl('/$', output.dir)) output.dir <- glue('{output.dir}/')
   
-  if (!grepl("/$", output.dir)) output.dir <- glue("{output.dir}/")
-  
-  if (names != TRUE) {
-    if (length(names) != nlyr(r)) stop("El largo de 'names' no coincide con el número de layers.")
-    names(r) <- names
+  if (is.logical(names) && names == TRUE) {
+    name_list <- names(r)
+    if (is.null(name_list) || any(is.na(name_list))) {
+      stop('El objeto raster no tiene nombres de capa definidos.')
+    }
+  } else if (is.character(names) && length(names) == nlyr(r)) {
+    name_list <- names
+  } else {
+    stop("El argumento 'names' debe ser TRUE o un vector de caracteres de largo igual al número de capas.")
   }
   
-  file_names <- glue("{output.dir}{band.name}{names(r)}.tif")
+  file_names <- gsub('//','/',glue('{output.dir}{band.name}{name_list}.tif'))
   
   preview <- head(file_names, 10)
-  cat("Las capas se guardarán de la siguiente forma (10 primeras):\n")
-  cat(paste0(preview, collapse = "\n"), "\n")
+  cat('Las capas se guardarán de la siguiente forma (10 primeras):\n')
+  cat(paste0(preview, collapse = '\n'), '\n')
   
-  respuesta <- readline(prompt = "¿Desea proceder con la exportación? [s/n]: ")
-  if (tolower(respuesta) != "s") {
-    cat("Exportación cancelada.\n")
+  respuesta <- readline(prompt = '¿Desea proceder con la exportación? [s/n]: ')
+  if (tolower(respuesta) != 's') {
+    cat('Exportación cancelada.\n')
     return(invisible(NULL))
   }
   
   lapply(1:nlyr(r), \(i) {
-    ly <- r[[i]]
-    writeRaster(ly, file_names[i], overwrite = TRUE)
+    writeRaster(r[[i]], file_names[i], overwrite = TRUE)
   })
   
-  cat("Exportación finalizada.\n")
+  cat('Exportación finalizada.\n')
 }
 
 # TerraClimate ####
@@ -74,18 +78,13 @@ s <- list.files('data/processed/raster/TerraClimate/SOIL',full.names=T) |>
   rast()
 
 delta_s <- s-c(setValues(s[[1]],NA), s[[1:(nlyr(s)-1)]])
-
 ws <- p-et-q
-ws_sm <- p-et-q-delta_s
 
-lapply(ws_sm, \(ly) {
-  date <- names(ly)
-  dir.out <- glue('data/processed/raster/TerraClimate/WS_SM/')
-  if (!dir.exists(dir.out)) {
-    dir.create(dir.out, recursive = TRUE, showWarnings = FALSE)
-  }
-  writeRaster(ly,paste0(dir.out, glue('WS_SM_{substr(date,1,4)}-{substr(date,6,7)}.tif')), overwrite=T)
-})
+dir.out <- glue('data/processed/raster/TerraClimate/')
+delta_s
+
+# exportRast(delta_s,glue('{dir.out}/deltaSM'),band.name = 'deltaSM_',names = substr(names(delta_s),1,7))
+# exportRast(p-et,glue('{dir.out}/P_ET'),band.name = 'P_ET_',names = substr(names(p),1,7))
 
 # SPI ####
 
@@ -104,12 +103,4 @@ dir.out <- 'data/processed/raster/SPI/'
 
 lapply(spi,\(ly) writeRaster(ly,glue('{dir.out}SPI_{names(ly)}.tif'),
                              overwrite=T))
-
-# GRACE ####
-
-grace_stack <- rast('data/raw/raster/GRACE/GRACE_LWE_2000_2024.tif')
-fechas <- gsub('_','-',str_extract(names(grace_stack), "\\d{4}_\\d{2}"))
-
-exportRast(grace_stack,'data/raw/raster/GRACE_input/GRACE/','GRACE_',names = fechas)
-
 

@@ -4,7 +4,7 @@ library(terra)
 library(RColorBrewer)
 library(patchwork)
 
-cor_matrix <- \(df, x_cols, y_cols, method) {
+cor_matrix <- \(df, x_cols, y_cols, method = 'pearson') {
   combs <- expand.grid(x = x_cols, y = y_cols, stringsAsFactors = FALSE)
   
   map_dfr(seq_len(nrow(combs)), \(i) {
@@ -32,7 +32,40 @@ cor_matrix <- \(df, x_cols, y_cols, method) {
     )
   })
 }
-plot_cor <- function(data, comparisons_vector, output = NULL, width = 10, height = 6) {
+plot_cor_general <- \(df, title = NULL) {
+  require(ggplot2)
+  require(dplyr)
+  require(forcats)
+  
+  df |>
+    mutate(
+      sig = case_when(
+        p_value < 0.001 ~ '***',
+        p_value < 0.01  ~ '**',
+        p_value < 0.05  ~ '*',
+        TRUE ~ ''
+      ),
+      comparison = fct_reorder(comparison, r)
+    ) |>
+    ggplot(aes(x = comparison, y = r, fill = r)) +
+    geom_col() +
+    geom_text(aes(label = sig), vjust = 0.5, hjust = -0.3, size = 5) +
+    coord_flip() +
+    scale_fill_distiller(palette = 'RdBu', direction = 1, limits = c(-1, 1)) +
+    labs(
+      title = title,
+      y = "Pearson's r",
+      x = NULL
+    ) +
+    theme_bw() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 14),
+      legend.position = 'none'
+    ) +
+    scale_x_discrete(expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,0), limits = c(0,1))
+}
+plot_cor <- function(data, comparisons_vector, output = NULL, title = NULL,width = 10, height = 6) {
   codigo_order <- data |> 
     filter(comparison %in% comparisons_vector) |>
     group_by(codigo) |> 
@@ -44,16 +77,21 @@ plot_cor <- function(data, comparisons_vector, output = NULL, width = 10, height
     filter(comparison %in% comparisons_vector) |>
     mutate(codigo    = factor(codigo, levels = codigo_order),
            comparison = factor(comparison, levels = comparisons_vector),
-           label = paste0(round(r,2),ifelse(p_value < .05,'**',''))) |> 
+           label = paste0(round(r,2),case_when(p_value < 0.001 ~ "***",
+                                               p_value < 0.01  ~ "**",
+                                               p_value < 0.05  ~ "*",
+                                               TRUE ~ ""))) |> 
     ggplot(aes(comparison, y = codigo, fill = r)) +
     geom_tile() +
     geom_text(aes(label = label), size = 3, color = 'grey20') +
     scale_fill_distiller(palette = "RdBu", direction = 1, limits = c(-1, 1), name = "r") +
     scale_x_discrete(expand = c(0,0)) +
     scale_y_discrete(expand = c(0,0)) +
-    labs(x = NULL, y = "well") +
+    labs(x = NULL, y = "well",title = title) +
+    facet_grid(~product, scales = 'free_x', space = 'free_x') +
     theme_bw() +
-    theme(strip.background = element_rect(fill = 'white'))
+    theme(strip.background = element_rect(fill = 'white'),
+          plot.title = element_text(hjust = 0.5))
   
   if (!is.null(output)) {
     dir_path <- dirname(output)
@@ -131,84 +169,174 @@ data_año <- read_rds('data/processed/rds/GWD_proxy_año.rds') |>
 
 # correlacion mensual
 
-x_cols = grep('GWD',names(data_mes),value = T)
-y_cols = grep('lwe|WS|SPI',names(data_mes),value = T)
+names(data_mes)
 
-data_mes |>
+corr_grace <- data_mes |> # GRACE
   group_by(codigo) |> 
   mutate(GWD = as.numeric(scale(GWD))) |> 
   ungroup() |> 
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
-  mutate(r = round(r,2)) |> 
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD', 
+                                     c('LWE','LWE_SI'))) |> 
+  mutate(product = 'GRACE',
+         r = round(r,2)) |> 
   arrange(desc(abs(r)))
 
-data_mes |> 
+corr_tc <- data_mes |> # TerraClimate
   group_by(codigo) |> 
   mutate(GWD = as.numeric(scale(GWD))) |> 
   ungroup() |> 
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |>
-  mutate(r = round(r,2)) |> 
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD', 
+                                     c('SPI_TC','P_ET_SI','Q_SI','SSI'))) |> 
+  mutate(product = 'TerraClimate',
+         r = round(r,2)) |> 
   arrange(desc(abs(r)))
+
+corr_era <- data_mes |> # ERA-5
+  group_by(codigo) |> 
+  mutate(GWD = as.numeric(scale(GWD))) |> 
+  ungroup() |> 
+  group_modify(\(df, key) cor_matrix(df,
+                                     'GWD',
+                                     'SPI_ERA')) |> 
+  mutate(product = 'ERA-5',
+         r = round(r,2)) |> 
+  arrange(desc(abs(r)))
+
+corr_mes_general <- bind_rows(corr_grace,corr_tc,corr_era) |> 
+  select(product, comparison,r,p_value)
+write_rds(corr_mes_general,'data/processed/rds/proxy_corr_mes_general.rds')
+
+data_plot <- corr_mes_general |> 
+  mutate(comparison = gsub('GWD vs ','',comparison))
+
+plot_cor_general(data_plot,title = "Pearson's r between GWD and monthly variables")
+
+ggsave('output/fig/correlation_2/summary/matrix_general_mes.png',width = 8, height = 6)
 
 # correlacion anual
 
-x_cols = grep('GWD',names(data_año),value = T)
-y_cols = grep('lwe|WS|SPI',names(data_año),value = T)
+names(data_año)
 
-data_año |> 
+corr_grace <- data_año |> # GRACE
   group_by(codigo) |> 
   mutate(GWD_mean = as.numeric(scale(GWD_mean))) |> 
   ungroup() |> 
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
-  mutate(r = round(r,2)) |> 
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD_mean', 
+                                     c('LWE_mean','LWE_SI'))) |> 
+  mutate(product = 'GRACE',
+         r = round(r,2)) |> 
   arrange(desc(abs(r)))
 
-data_año |> 
+corr_tc <- data_año |> # TerraClimate
   group_by(codigo) |> 
   mutate(GWD_mean = as.numeric(scale(GWD_mean))) |> 
   ungroup() |> 
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |>
-  mutate(r = round(r,2)) |> 
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD_mean', 
+                                     c('P_sum','P_ET_sum','Q_sum','SM_sum','deltaSM_sum',
+                                       'SPI_TC','SSI','P_ET_SI','Q_SI','deltaSM_SI'))) |> 
+  mutate(product = 'TerraClimate',
+         r = round(r,2)) |> 
   arrange(desc(abs(r)))
+
+corr_era <- data_año |> # ERA-5
+  group_by(codigo) |> 
+  mutate(GWD_mean = as.numeric(scale(GWD_mean))) |> 
+  ungroup() |> 
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD_mean', 
+                                     'SPI_ERA')) |> 
+  mutate(product = 'ERA-5',
+         r = round(r,2)) |> 
+  arrange(desc(abs(r)))
+
+corr_año_general <- bind_rows(corr_grace,corr_tc,corr_era) |> 
+  select(product, comparison,r,p_value)
+
+write_rds(corr_año_general,'data/processed/rds/proxy_corr_año_general.rds')
+
+data_plot <- corr_año_general |> 
+  mutate(comparison = gsub('GWD_mean vs ','',comparison))
+
+plot_cor_general(data_plot,title = "Pearson's r between GWD and annual variables")
+
+ggsave('output/fig/correlation_2/summary/matrix_general_año.png',width = 8, height = 6)
 
 # correlacion por pozo ####
 
 # correlacion mensual
 
-x_cols = grep('GWD',names(data_mes),value = T)
-y_cols = grep('lwe|WS|SPI',names(data_mes),value = T)
-
-data_mes |> 
-  group_by(codigo) |>
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
-  write_rds('data/processed/rds/correlacion_GWD_proxy_mes_pearson.rds')
-
-data_mes |> 
+corr_grace <- data_mes |> # GRACE
   group_by(codigo) |> 
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |> 
-  write_rds('data/processed/rds/correlacion_GWD_proxy_mes_spearman.rds')
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD', 
+                                     c('LWE','LWE_SI'))) |> 
+  mutate(product = 'GRACE',
+         r = round(r,2))
+
+corr_tc <- data_mes |> # TerraClimate
+  group_by(codigo) |> 
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD', 
+                                     c('SPI_TC','P_ET_SI','Q_SI','SSI'))) |> 
+  mutate(product = 'TerraClimate',
+         r = round(r,2))
+
+corr_era <- data_mes |> # ERA-5
+  group_by(codigo) |>
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD', 
+                                     'SPI_ERA')) |> 
+  mutate(product = 'ERA-5',
+         r = round(r,2))
+
+corr_mes_pozo <- bind_rows(corr_grace,corr_tc,corr_era) |> 
+  ungroup() |> 
+  select(product, comparison,codigo,r,p_value)
+write_rds(corr_mes_pozo,'data/processed/rds/proxy_corr_mes_pozo.rds')
 
 # correlacion anual
 
-x_cols = grep('GWD',names(data_año),value = T)
-y_cols = grep('lwe|WS|SPI',names(data_año),value = T)
-
-data_año |> 
+corr_grace <- data_año |> # GRACE
   group_by(codigo) |>
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'pearson')) |> 
-  write_rds('data/processed/rds/correlacion_GWD_proxy_año_pearson.rds')
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD_mean', 
+                                     c('LWE_mean','LWE_SI'))) |> 
+  mutate(product = 'GRACE',
+         r = round(r,2))
 
-data_año |> 
-  group_by(codigo) |> 
-  group_modify(\(df, key) cor_matrix(df, x_cols, y_cols, method = 'spearman')) |> 
-  write_rds('data/processed/rds/correlacion_GWD_proxy_año_spearman.rds')
+corr_tc <- data_año |> # TerraClimate
+  group_by(codigo) |>
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD_mean', 
+                                     c('P_sum','P_ET_sum','Q_sum','SM_sum','deltaSM_sum',
+                                       'SPI_TC','SSI','P_ET_SI','Q_SI','deltaSM_SI'))) |> 
+  mutate(product = 'TerraClimate',
+         r = round(r,2))
+
+corr_era <- data_año |> # ERA-5
+  group_by(codigo) |>
+  group_modify(\(df, key) cor_matrix(df, 
+                                     'GWD_mean', 
+                                     'SPI_ERA')) |> 
+  mutate(product = 'ERA-5',
+         r = round(r,2))
+
+corr_año_pozo <- bind_rows(corr_grace,corr_tc,corr_era) |> 
+  ungroup() |> 
+  select(product, comparison,codigo,r,p_value)
+write_rds(corr_año_pozo,'data/processed/rds/proxy_corr_año_pozo.rds')
 
 # visualizar pearson mensual
 
-data_pearson <- read_rds('data/processed/rds/correlacion_GWD_proxy_mes_pearson.rds')
+data_mes <- read_rds('data/processed/rds/proxy_corr_mes_pozo.rds') |> 
+  mutate(comparison = gsub('GWD vs ','',comparison))
 
-cor_frequency <- data_pearson |>
-  group_by(codigo, comparison) |>
+cor_frequency <- data_mes |>
+  group_by(product,codigo, comparison) |>
   reframe(abs_r = abs(r)) |>
   group_by(codigo) |>
   slice_max(order_by = abs_r, n = 1) |>
@@ -217,69 +345,22 @@ cor_frequency <- data_pearson |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-# data_pearson |> 
-#   pull(comparison) |> 
-#   unique()
+data_mes |>
+  select(product,comparison) |>
+  distinct()
 
-plot_cor(data_pearson,rev(tail(cor_frequency$comparison,4)),
-         output = 'output/fig/correlation_2/summary/matrix_mes_4th_pearson.png')
-plot_cor(data_pearson,paste0('GWD vs ',c('SPI','lwe','WS_SM_acum')),
-         output = 'output/fig/correlation_2/summary/matrix_mes_all_pearson.png')
-
-plot_cor(data_pearson,rev(tail(cor_frequency$comparison,4)),
-         output = 'output/fig/correlation_2/pearson/mes/matrix_mes_pearson_4th.png')
-plot_cor(data_pearson,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
-         output = 'output/fig/correlation_2/pearson/mes/matrix_mes_pearson_all.png')
-plot_cor(data_pearson,paste0('GWD vs ',c('WS','WS_lag3','WS_lag6','WS_lag12')),
-         output = 'output/fig/correlation_2/pearson/mes/matrix_mes_pearson_WS_lag.png')
-plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM','WS_SM_lag3','WS_SM_lag6','WS_SM_lag12')),
-         output = 'output/fig/correlation_2/pearson/mes/matrix_mes_pearson_WS_SM_lag.png')
-plot_cor(data_pearson,paste0('GWD vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
-         output = 'output/fig/correlation_2/pearson/mes/matrix_mes_pearson_WS_acum.png')
-plot_cor(data_pearson,paste0('GWD vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
-         output = 'output/fig/correlation_2/pearson/mes/matrix_mes_pearson_WS_SM_acum.png')
-
-# visualizar spearman mensual
-
-data_spearman <- read_rds('data/processed/rds/correlacion_GWD_proxy_mes_spearman.rds')
-
-cor_frequency <- data_spearman |>
-  group_by(codigo, comparison) |>
-  reframe(abs_r = abs(r)) |>
-  group_by(codigo) |>
-  slice_max(order_by = abs_r, n = 1) |>
-  ungroup() |>
-  select(comparison) |>
-  count(comparison, name = "frequency") |>
-  arrange(frequency)
-
-# data_pearson |> 
-#   pull(comparison) |> 
-#   unique()
-
-plot_cor(data_spearman,rev(tail(cor_frequency$comparison,4)),
-         output = 'output/fig/correlation_2/summary/matrix_mes_4th_spearman.png')
-plot_cor(data_spearman,paste0('GWD vs ',c('SPI','lwe','WS_SM_acum')),
-         output = 'output/fig/correlation_2/summary/matrix_mes_all_spearman.png')
-
-plot_cor(data_spearman,rev(tail(cor_frequency$comparison,4)),
-         output = 'output/fig/correlation_2/spearman/mes/matrix_mes_spearman_4th.png')
-plot_cor(data_spearman,paste0('GWD vs ',c('SPI','WS','WS_acum','WS_SM','WS_SM_acum')),
-         output = 'output/fig/correlation_2/spearman/mes/matrix_mes_spearman_all.png')
-plot_cor(data_spearman,paste0('GWD vs ',c('WS','WS_lag3','WS_lag6','WS_lag12')),
-         output = 'output/fig/correlation_2/spearman/mes/matrix_mes_spearman_WS_lag.png')
-plot_cor(data_spearman,paste0('GWD vs ',c('WS_SM','WS_SM_lag3','WS_SM_lag6','WS_SM_lag12')),
-         output = 'output/fig/correlation_2/spearman/mes/matrix_mes_spearman_WS_SM_lag.png')
-plot_cor(data_spearman,paste0('GWD vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
-         output = 'output/fig/correlation_2/spearman/mes/matrix_mes_spearman_WS_acum.png')
-plot_cor(data_spearman,paste0('GWD vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
-         output = 'output/fig/correlation_2/spearman/mes/matrix_mes_spearman_WS_SM_acum.png')
+plot_cor(data_mes,c('LWE','LWE_SI',
+                    'SSI','SPI_TC','P_ET_SI','Q_SI',
+                    'SPI_ERA'),
+         output = 'output/fig/correlation_2/summary/matrix_pozo_mes.png',
+         title = "Pearson's r between GWD and monthly variables")
 
 # visualizar pearson año
 
-data_pearson <- read_rds('data/processed/rds/correlacion_GWD_proxy_año_pearson.rds')
+data_año <- read_rds('data/processed/rds/proxy_corr_año_pozo.rds') |> 
+  mutate(comparison = gsub('GWD_mean vs ','',comparison))
 
-cor_frequency <- data_pearson |>
+cor_frequency <- data_año |>
   group_by(codigo, comparison) |>
   reframe(abs_r = abs(r)) |>
   group_by(codigo) |>
@@ -289,27 +370,15 @@ cor_frequency <- data_pearson |>
   count(comparison, name = "frequency") |>
   arrange(frequency)
 
-# data_pearson |>
-#   pull(comparison) |>
-#   unique()
+data_año |>
+  select(product,comparison) |>
+  distinct()
 
-plot_cor(data_pearson,rev(tail(cor_frequency$comparison,4)),
-         output = 'output/fig/correlation_2/summary/matrix_año_4th_pearson.png')
-plot_cor(data_pearson,paste0('GWD_mean vs ',c('SPI_anual','lwe_mean','WS_SM_acum')),
-         output = 'output/fig/correlation_2/summary/matrix_año_all_pearson.png',width = 12)
-
-plot_cor(data_pearson,rev(tail(cor_frequency$comparison,4)),
-         output = 'output/fig/correlation_2/pearson/año/matrix_año_pearson_4th.png')
-plot_cor(data_pearson,paste0('GWD_mean vs ',c('SPI_anual','SPI_mean','WS_sum','WS_acum','WS_SM_sum','WS_SM_acum')),
-         output = 'output/fig/correlation_2/pearson/año/matrix_año_pearson_all.png',width = 12)
-plot_cor(data_pearson,paste0('GWD_mean vs ',c('WS_sum','WS_lag3_sum','WS_lag6_sum','WS_lag12_sum')),
-         output = 'output/fig/correlation_2/pearson/año/matrix_año_pearson_WS_lag.png')
-plot_cor(data_pearson,paste0('GWD_mean vs ',c('WS_SM_sum','WS_SM_lag3_sum','WS_SM_lag6_sum','WS_SM_lag12_sum')),
-         output = 'output/fig/correlation_2/pearson/año/matrix_año_pearson_WS_SM_lag.png')
-plot_cor(data_pearson,paste0('GWD_mean vs ',c('WS_acum','WS_lag3_acum','WS_lag6_acum','WS_lag12_acum')),
-         output = 'output/fig/correlation_2/pearson/año/matrix_año_pearson_WS_acum.png')
-plot_cor(data_pearson,paste0('GWD_mean vs ',c('WS_SM_acum','WS_SM_lag3_acum','WS_SM_lag6_acum','WS_SM_lag12_acum')),
-         output = 'output/fig/correlation_2/pearson/año/matrix_año_pearson_WS_SM_acum.png')
+plot_cor(data_año,c('LWE_SI','LWE_mean',
+                    'SSI','SPI_TC','P_ET_SI','Q_SI','SM_sum',
+                    'SPI_ERA'),
+         output = 'output/fig/correlation_2/summary/matrix_pozo_año.png',
+         title = "Pearson's r between GWD and annual variables")
 
 # visualizar spearman año
 
