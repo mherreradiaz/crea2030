@@ -1,4 +1,5 @@
 library(tidyverse)
+library(terra)
 library(tidyterra)
 library(readxl)
 
@@ -44,28 +45,40 @@ data <- read_rds('data/processed/rds/GWD_chile.rds') |>
 
 # Consistencia pozos
 
-data_filter <- data |> 
+# data_filter <- data |> 
+#   group_by(codigo,año = year(fecha)) |> 
+#   reframe(head = sum(!is.na(head(GWD,3))), # valores !NA en los primeros tres meses (máximo 3)
+#           tail = sum(!is.na(tail(GWD,3))), # valores !NA en los últimos tres meses (máximo 3)
+#           total = sum(!is.na(GWD))) |>  # meses con valores !NA (máximo 12)
+#   rowwise() |> 
+#   mutate(head_tail = sum(head >= 1 & tail >= 1)) |> # valores !NA entre primeros y últimos tres meses (en) 
+#   group_by(codigo) |>
+#   reframe(año_mt_6 = sum(total >= 6), # n de años con más de 6 meses
+#           año_mt_4 = sum(total >= 4), # n de años con más de 4 meses
+#           head_mt_1 = sum(head >= 1), # n de años con al menos un valor en los primeros tres meses
+#           tail_mt_1 = sum(tail >= 1), # n de años con al menos un valor en los ultimos tres meses
+#           head_tail_1 = sum(head_tail >= 1)) |> # n de años con al menos un valor en los primeros y ultimos tres meses
+#   rowwise() |> 
+#   mutate(pt = año_mt_6*.25+año_mt_4*.2+head_mt_1*.15+tail_mt_1*.15+head_tail_1*.25)
+# 
+# pt_min <- data_filter |> 
+#   pull(pt) |> 
+#   quantile(.57)
+# 
+# codigos_seleccionados <- data_filter |> 
+#   filter(pt >= pt_min) |> 
+#   pull(codigo)
+
+data_n <- data |> 
+  na.omit() |> 
   group_by(codigo,año = year(fecha)) |> 
-  reframe(head = sum(!is.na(head(GWD,3))), # valores !NA en los primeros tres meses (máximo 3)
-          tail = sum(!is.na(tail(GWD,3))), # valores !NA en los últimos tres meses (máximo 3)
-          total = sum(!is.na(GWD))) |>  # meses con valores !NA (máximo 12)
-  rowwise() |> 
-  mutate(head_tail = sum(head >= 1 & tail >= 1)) |> # valores !NA entre primeros y últimos tres meses (en) 
-  group_by(codigo) |>
-  reframe(año_mt_6 = sum(total >= 6), # n de años con más de 6 meses
-          año_mt_4 = sum(total >= 4), # n de años con más de 4 meses
-          head_mt_1 = sum(head >= 1), # n de años con al menos un valor en los primeros tres meses
-          tail_mt_1 = sum(tail >= 1), # n de años con al menos un valor en los ultimos tres meses
-          head_tail_1 = sum(head_tail >= 1)) |> # n de años con al menos un valor en los primeros y ultimos tres meses
-  rowwise() |> 
-  mutate(pt = año_mt_6*.25+año_mt_4*.2+head_mt_1*.15+tail_mt_1*.15+head_tail_1*.25)
+  reframe(n = n()) |> 
+  filter(n >= 3) |> 
+  group_by(codigo) |> 
+  reframe(n = n())
 
-pt_min <- data_filter |> 
-  pull(pt) |> 
-  quantile(.57)
-
-codigos_seleccionados <- data_filter |> 
-  filter(pt >= pt_min) |> 
+codigos_seleccionados <- data_n |> 
+  filter(n >= ceiling(22*.75)) |> 
   pull(codigo)
 
 pozos <- read_rds('data/processed/rds/pozos_chile.rds') |> 
@@ -84,12 +97,6 @@ vect('data/processed/vectorial/pozos/pozos_chile.shp') |>
   writeVector('data/processed/vectorial/pozos/pozos_aconcagua.shp',overwrite=T)
 
 # fill data (no aplicado)
-
-
-read_rds('data/processed/rds/GWD_chile.rds') |> 
-  filter(codigo %in% codigos_seleccionados) |>
-  filter(codigo == 5422003) |> 
-  View()
 
 library(zoo)
 

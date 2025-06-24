@@ -118,14 +118,6 @@ data_año <- data_mes |>
     # lwe
     lwe_mean   = consMean(lwe,.5),
     # WS
-    WS_sum          = sum(WS),
-    WS_lag3_sum     = sum(WS_lag3),
-    WS_lag6_sum     = sum(WS_lag6),
-    WS_lag12_sum    = sum(WS_lag12),
-    WS_SM_sum       = sum(WS_SM),
-    WS_SM_lag3_sum  = sum(WS_SM_lag3),
-    WS_SM_lag6_sum  = sum(WS_SM_lag6),
-    WS_SM_lag12_sum = sum(WS_SM_lag12),
     WS_acum         = WS_acum[month(fecha)==12],
     WS_lag3_acum    = WS_lag3_acum[month(fecha)==12],
     WS_lag6_acum    = WS_lag6_acum[month(fecha)==12],
@@ -136,7 +128,6 @@ data_año <- data_mes |>
     WS_SM_lag12_acum = WS_SM_lag12_acum[month(fecha)==12],
     # SPI
     SPI_anual = SPI[month(fecha)==12],
-    SPI_mean = consMean(SPI,8/12)
   )|>
   filter(between(año,2000,2021))
 
